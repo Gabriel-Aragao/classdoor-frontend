@@ -6,9 +6,7 @@ function Navbar() {
                     <i className="bi bi-mortarboard-fill"></i>
                     Classdoor
                 </a>
-                <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor01" aria-controls="navbarColor01" aria-expanded="false" aria-label="Alternar navegação">
-                    <span className="navbar-toggler-icon"></span>
-                </button>
+             
                 <div className="collapse navbar-collapse justify-content-end pt-2 " id="navbarColor01">
                     <ul className="navbar-nav pe-4">
                         <li className="nav-item ms-auto">
