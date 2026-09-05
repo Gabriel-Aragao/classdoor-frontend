@@ -12,7 +12,7 @@ function RegisterPage() {
 					Crie sua conta para avaliar professores e disciplinas
 				</p>
 			</div>
-			<div className="card p-4 center mx-auto" style={{ maxWidth: "520px" }}>
+			<div className="card register-card p-4 mx-auto" style={{ maxWidth: "520px" }}>
 
 				<div className="bg-light w-100 p-1 d-flex rounded " >
 					<button type="button" className=" fw-bold btn btn-success me-1 bg-white w-100 border-0" style={{ color: "#7B8A8B" }}>
