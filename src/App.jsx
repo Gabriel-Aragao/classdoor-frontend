@@ -8,7 +8,7 @@ function App() {
           <div className="badge">Classdoor • Frontend</div>
           <h1>🎓 Hello, Classdoor!</h1>
           <p className="subtitle">
-            Plataforma universitária de avaliação de disciplinas e docentes.
+            Plataforma universitária de avaliação de disciplinas.
           </p>
           <p className="description">
             Estrutura base pronta para integração com <strong>Bootstrap 5</strong>, <strong>Bootswatch</strong> e <strong>React 19</strong>.
