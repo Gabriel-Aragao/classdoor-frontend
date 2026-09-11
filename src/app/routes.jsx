@@ -5,7 +5,7 @@ function AppRoutes() {
     return (
         <Routes>
             <Route path="/register" element={<RegisterPage />}></Route>
-            <Route path='/' element={<RegisterPage/}></Route >
+            <Route path='/' element={<RegisterPage/>}></Route >
         </Routes>
     );
 }
