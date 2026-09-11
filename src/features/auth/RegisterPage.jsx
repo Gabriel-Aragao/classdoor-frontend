@@ -65,10 +65,10 @@ function RegisterPage() {
 							Criar Minha Conta
 						</button>
 
-						<p className="fw-semibold" style={{ fontSize: '13px', color: '#7B8A8B' }}>Já possui conta cadastrada?</p>
+						<p className="fw-semibold mt-3 mb-1" style={{ fontSize: '13px', color: '#7B8A8B' }}>Já possui conta cadastrada?</p>
 
 						<button type="button" className="fw-semibold btn w-100" style={{ backgroundColor: "#2C3E50", color: "white" }}>
-							Criar Minha Conta
+							Entrar com Conta Existente
 						</button>
 					</form>
 				</div>
