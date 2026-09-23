@@ -44,8 +44,9 @@ describe('Autenticação — Card 007', () => {
       password: '12345678',
     });
 
+    const rejection = expect(promise).rejects.toThrow('Digite um e-mail válido.');
     await vi.advanceTimersByTimeAsync(600);
-    await expect(promise).rejects.toThrow('Digite um e-mail válido.');
+    await rejection;
   });
 
   it('rejeita senha com menos de 8 caracteres', async () => {
@@ -55,8 +56,9 @@ describe('Autenticação — Card 007', () => {
       password: '1234567',
     });
 
+    const rejection = expect(promise).rejects.toThrow('A senha deve ter no mínimo 8 caracteres.');
     await vi.advanceTimersByTimeAsync(600);
-    await expect(promise).rejects.toThrow('A senha deve ter no mínimo 8 caracteres.');
+    await rejection;
   });
 
   it('bloqueia e-mail duplicado', async () => {
@@ -79,8 +81,9 @@ describe('Autenticação — Card 007', () => {
       password: '87654321',
     });
 
+    const rejection = expect(promise).rejects.toThrow('Este e-mail já está cadastrado.');
     await vi.advanceTimersByTimeAsync(600);
-    await expect(promise).rejects.toThrow('Este e-mail já está cadastrado.');
+    await rejection;
   });
 
   it('faz login com credenciais corretas e emite JWT mockado', async () => {
@@ -122,9 +125,9 @@ describe('Autenticação — Card 007', () => {
     });
 
     const promise = authService.login('maria@gmail.com', 'errada');
+    const rejection = expect(promise).rejects.toThrow('E-mail ou senha inválidos.');
     await vi.advanceTimersByTimeAsync(600);
-
-    await expect(promise).rejects.toThrow('E-mail ou senha inválidos.');
+    await rejection;
     expect(authService.isAuthenticated()).toBe(false);
   });
 

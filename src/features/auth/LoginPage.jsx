@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import AuthTabs from '../../components/layout/AuthTabs';
@@ -18,9 +18,15 @@ function LoginPage() {
   const emailValid = EMAIL_REGEX.test(email.trim());
   const passwordValid = password.length > 0;
 
-  useEffect(() => {
+  const handleEmailChange = (event) => {
+    setEmail(event.target.value);
     if (error) setError('');
-  }, [email, password]);
+  };
+
+  const handlePasswordChange = (event) => {
+    setPassword(event.target.value);
+    if (error) setError('');
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -73,7 +79,7 @@ function LoginPage() {
               id="login-email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={handleEmailChange}
               onBlur={() => setTouched((current) => ({ ...current, email: true }))}
               className={touched.email && !emailValid ? 'auth-input invalid' : 'auth-input'}
               placeholder="estudante@universidade.edu"
@@ -93,7 +99,7 @@ function LoginPage() {
               id="login-password"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={handlePasswordChange}
               onBlur={() => setTouched((current) => ({ ...current, password: true }))}
               className={touched.password && !passwordValid ? 'auth-input invalid' : 'auth-input'}
               placeholder="••••••••••••"
