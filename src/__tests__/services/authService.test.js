@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { authService } from '../../services/authService';
+import { mockAuthService } from '../../services/mockAuthService';
 import { useUserStore } from '../../store/userStore';
 
-describe('authService', () => {
-  const initialStoreState = {
+describe('Autenticação — Card 007', () => {
+  const initialState = {
     registeredUsers: [],
     user: null,
     token: null,
@@ -15,198 +16,169 @@ describe('authService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
-    useUserStore.setState(initialStoreState);
+    useUserStore.setState(initialState);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  afterEach(() => vi.useRealTimers());
 
-  describe('login', () => {
-    const mockUser = {
-      id: 'usr-1',
-      name: 'Maria Silva',
-      email: 'maria@example.com',
-      password: 'password123',
-      role: 'teacher',
-      department: 'Computação',
-      createdAt: new Date().toISOString(),
-    };
-
-    beforeEach(() => {
-      useUserStore.setState({
-        ...initialStoreState,
-        registeredUsers: [mockUser],
-      });
+  it('aceita e-mail válido de qualquer domínio no cadastro', async () => {
+    const promise = authService.register({
+      name: 'Ana Silva',
+      email: 'ana@outlook.com',
+      password: '12345678',
+      role: 'student',
     });
 
-    it('deve realizar login com sucesso passando email e senha', async () => {
-      const loginPromise = authService.login('maria@example.com', 'password123');
+    await vi.advanceTimersByTimeAsync(600);
+    const result = await promise;
 
-      await vi.advanceTimersByTimeAsync(600);
-      const result = await loginPromise;
+    expect(result.user.email).toBe('ana@outlook.com');
+    expect(result.user.password).toBeUndefined();
+    expect(result.token).toMatch(/^mock-jwt-/);
+  });
 
-      expect(result).toHaveProperty('user');
-      expect(result).toHaveProperty('token');
-      expect(result.user).toEqual({
+  it('rejeita e-mail malformado no cadastro', async () => {
+    const promise = authService.register({
+      name: 'Ana Silva',
+      email: 'ana@invalido',
+      password: '12345678',
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    await expect(promise).rejects.toThrow('Digite um e-mail válido.');
+  });
+
+  it('rejeita senha com menos de 8 caracteres', async () => {
+    const promise = authService.register({
+      name: 'Ana Silva',
+      email: 'ana@gmail.com',
+      password: '1234567',
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    await expect(promise).rejects.toThrow('A senha deve ter no mínimo 8 caracteres.');
+  });
+
+  it('bloqueia e-mail duplicado', async () => {
+    useUserStore.setState({
+      ...initialState,
+      registeredUsers: [{
+        id: 'usr-1',
+        name: 'Ana',
+        email: 'ana@gmail.com',
+        password: '12345678',
+        role: 'student',
+        department: 'Geral',
+        createdAt: new Date().toISOString(),
+      }],
+    });
+
+    const promise = authService.register({
+      name: 'Outra Ana',
+      email: ' ANA@GMAIL.COM ',
+      password: '87654321',
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    await expect(promise).rejects.toThrow('Este e-mail já está cadastrado.');
+  });
+
+  it('faz login com credenciais corretas e emite JWT mockado', async () => {
+    useUserStore.setState({
+      ...initialState,
+      registeredUsers: [{
         id: 'usr-1',
         name: 'Maria Silva',
-        email: 'maria@example.com',
+        email: 'maria@gmail.com',
+        password: 'password123',
         role: 'teacher',
         department: 'Computação',
-        createdAt: mockUser.createdAt,
-      });
-      expect(result.user.password).toBeUndefined();
-      expect(result.token).toMatch(/^mock-token-usr-1-/);
-
-      // Garante que o userStore foi atualizado
-      expect(useUserStore.getState().isAuthenticated).toBe(true);
-      expect(useUserStore.getState().user).toEqual(result.user);
+        createdAt: new Date().toISOString(),
+      }],
     });
 
-    it('deve suportar chamada com objeto de credenciais { email, password }', async () => {
-      const loginPromise = authService.login({
-        email: 'maria@example.com',
+    const promise = mockAuthService.loginUser({
+      email: 'MARIA@GMAIL.COM',
+      password: 'password123',
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    const result = await promise;
+
+    expect(result.token).toMatch(/^mock-jwt-/);
+    expect(result.user.password).toBeUndefined();
+    expect(authService.isAuthenticated()).toBe(true);
+  });
+
+  it('rejeita login com credenciais incorretas', async () => {
+    useUserStore.setState({
+      ...initialState,
+      registeredUsers: [{
+        id: 'usr-1',
+        name: 'Maria Silva',
+        email: 'maria@gmail.com',
         password: 'password123',
-      });
-
-      await vi.advanceTimersByTimeAsync(600);
-      const result = await loginPromise;
-
-      expect(result.user.email).toBe('maria@example.com');
-      expect(result.token).toBeDefined();
+      }],
     });
 
-    it('deve lançar erro se email ou senha forem omitidos', async () => {
-      const cases = [
-        ['', '123'],
-        ['maria@example.com', ''],
-        [null, null],
-      ];
+    const promise = authService.login('maria@gmail.com', 'errada');
+    await vi.advanceTimersByTimeAsync(600);
 
-      for (const [email, pass] of cases) {
-        useUserStore.setState({
-          ...initialStoreState,
-          registeredUsers: [mockUser],
-        });
+    await expect(promise).rejects.toThrow('E-mail ou senha inválidos.');
+    expect(authService.isAuthenticated()).toBe(false);
+  });
 
-        const loginPromise = authService.login(email, pass);
-        const rejection = expect(loginPromise).rejects.toThrow('Email e senha são obrigatórios.');
-        await vi.advanceTimersByTimeAsync(600);
-        await rejection;
-      }
+  it('persiste o cadastro no localStorage do Zustand', async () => {
+    const promise = authService.register({
+      name: 'João Santos',
+      email: 'joao@universidade.edu',
+      password: '12345678',
     });
 
-    it('deve lançar erro se o usuário não for encontrado no mock', async () => {
-      const loginPromise = authService.login('inexistente@example.com', '123456');
-      const rejection = expect(loginPromise).rejects.toThrow('Email ou senha invalidos');
-      await vi.advanceTimersByTimeAsync(600);
-      await rejection;
-    });
+    await vi.advanceTimersByTimeAsync(600);
+    await promise;
 
-    it('deve lançar erro se a senha estiver incorreta', async () => {
-      const loginPromise = authService.login('maria@example.com', 'senhaincorreta');
-      const rejection = expect(loginPromise).rejects.toThrow('Email ou senha invalidos');
-      await vi.advanceTimersByTimeAsync(600);
-      await rejection;
+    const stored = JSON.parse(localStorage.getItem('@classdoor:auth_state'));
+    expect(stored.state.registeredUsers).toHaveLength(1);
+    expect(stored.state.registeredUsers[0].email).toBe('joao@universidade.edu');
+  });
+
+  it('simula recuperação com validade de 30 minutos', async () => {
+    const promise = mockAuthService.requestPasswordReset('estudante@gmail.com');
+    await vi.advanceTimersByTimeAsync(300);
+    const request = await promise;
+
+    expect(request.sent).toBe(true);
+    expect(request.expiresInMinutes).toBe(30);
+    expect(request.expiresAt - request.requestedAt).toBe(30 * 60 * 1000);
+    expect(mockAuthService.getPasswordResetRequest()).toMatchObject({
+      email: 'estudante@gmail.com',
+      token: request.token,
     });
   });
 
-  describe('register', () => {
-    it('deve registrar um novo usuário com sucesso no mock do userStore e autenticá-lo', async () => {
-      const userData = {
-        name: ' Carlos Drummond ',
-        email: 'carlos@example.com',
-        password: 'pass',
-        role: 'teacher',
-        department: 'Letras',
-      };
+  it('considera o link de recuperação expirado após 30 minutos', async () => {
+    const promise = mockAuthService.requestPasswordReset('estudante@gmail.com');
+    await vi.advanceTimersByTimeAsync(300);
+    await promise;
 
-      const registerPromise = authService.register(userData);
-      await vi.advanceTimersByTimeAsync(600);
-      const result = await registerPromise;
+    vi.advanceTimersByTime(30 * 60 * 1000);
 
-      expect(result).toHaveProperty('user');
-      expect(result).toHaveProperty('token');
-
-      // user (sessão) não expõe a senha
-      expect(result.user.name).toBe('Carlos Drummond');
-      expect(result.user.password).toBeUndefined();
-      expect(result.token).toMatch(/^mock-token-/);
-
-      // userStore armazena nos registeredUsers
-      const state = useUserStore.getState();
-      expect(state.registeredUsers).toHaveLength(1);
-      expect(state.registeredUsers[0].name).toBe('Carlos Drummond');
-      expect(state.isAuthenticated).toBe(true);
-    });
-
-    it('deve aplicar valores padrão (student, Geral) se role e department forem omitidos', async () => {
-      const userData = {
-        name: 'Ana',
-        email: 'ana@example.com',
-        password: 'pass',
-      };
-
-      const registerPromise = authService.register(userData);
-      await vi.advanceTimersByTimeAsync(600);
-      const result = await registerPromise;
-
-      expect(result.user.role).toBe('student');
-      expect(result.user.department).toBe('Geral');
-    });
-
-    it('deve lançar erro se nome, email ou senha estiverem ausentes', async () => {
-      const cases = [
-        { name: '', email: 'teste@example.com', password: '123' },
-        { name: 'Teste', email: '', password: '123' },
-        { name: 'Teste', email: 'teste@example.com', password: '' },
-      ];
-
-      for (const invalidData of cases) {
-        const registerPromise = authService.register(invalidData);
-        const rejection = expect(registerPromise).rejects.toThrow('Email, senha e nome são obrigatórios');
-        await vi.advanceTimersByTimeAsync(600);
-        await rejection;
-      }
-    });
-
-    it('deve lançar erro se o email já estiver cadastrado', async () => {
-      useUserStore.setState({
-        ...initialStoreState,
-        registeredUsers: [{ email: 'duplicado@example.com', password: '123' }],
-      });
-
-      const registerPromise = authService.register({
-        name: 'Duplicado',
-        email: 'duplicado@example.com',
-        password: '123',
-      });
-
-      const rejection = expect(registerPromise).rejects.toThrow('Email ja cadastrado');
-      await vi.advanceTimersByTimeAsync(600);
-      await rejection;
-    });
+    expect(mockAuthService.getPasswordResetRequest()).toBeNull();
   });
 
-  describe('logout e helpers de estado', () => {
-    it('deve efetuar logout e limpar a sessão no userStore', () => {
-      useUserStore.setState({
-        ...initialStoreState,
-        user: { id: 'usr-1', name: 'Ana' },
-        token: 'mock-token',
-        isAuthenticated: true,
-      });
-
-      expect(authService.isAuthenticated()).toBe(true);
-      expect(authService.getCurrentUser()).toEqual({ id: 'usr-1', name: 'Ana' });
-      expect(authService.getToken()).toBe('mock-token');
-
-      authService.logout();
-
-      expect(authService.isAuthenticated()).toBe(false);
-      expect(authService.getCurrentUser()).toBeNull();
-      expect(authService.getToken()).toBeNull();
+  it('faz logout limpando a sessão', () => {
+    useUserStore.setState({
+      ...initialState,
+      user: { id: 'usr-1', name: 'Ana' },
+      token: 'mock-jwt-123',
+      isAuthenticated: true,
     });
+
+    authService.logout();
+
+    expect(authService.isAuthenticated()).toBe(false);
+    expect(authService.getCurrentUser()).toBeNull();
+    expect(authService.getToken()).toBeNull();
   });
 });

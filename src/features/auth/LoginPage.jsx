@@ -1,20 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import AuthTabs from '../../components/layout/AuthTabs';
 import { mockAuthService } from '../../services/mockAuthService';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('@classdoor:remember_email') || '');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(() => Boolean(localStorage.getItem('@classdoor:remember_email')));
   const [touched, setTouched] = useState({ email: false, password: false });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const emailValid = EMAIL_REGEX.test(email.trim());
   const passwordValid = password.length > 0;
+
+  useEffect(() => {
+    if (error) setError('');
+  }, [email, password]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -22,15 +28,20 @@ function LoginPage() {
     setError('');
 
     if (!emailValid || !passwordValid) {
-      setError('Informe um e-mail e uma senha válidos.');
+      setError('Informe um e-mail válido e uma senha.');
       return;
     }
 
     setLoading(true);
     try {
       await mockAuthService.loginUser({ email: email.trim(), password });
-      if (remember) localStorage.setItem('@classdoor:remember_email', email.trim());
-      else localStorage.removeItem('@classdoor:remember_email');
+
+      if (remember) {
+        localStorage.setItem('@classdoor:remember_email', email.trim());
+      } else {
+        localStorage.removeItem('@classdoor:remember_email');
+      }
+
       navigate('/home', { replace: true });
     } catch (err) {
       setError(err.message || 'Não foi possível entrar. Verifique seus dados.');
@@ -42,14 +53,17 @@ function LoginPage() {
   return (
     <div className="auth-page">
       <Navbar />
-      <main className="auth-shell">
-        <section className="auth-card" aria-label="Acesso à conta">
+      <main className="auth-shell login-shell">
+        <section className="auth-card login-card" aria-label="Acesso à conta">
+          <div className="auth-heading">
+            <h1>Acesse o Classdoor</h1>
+            <p>Avaliação docente ética, transparente e 100% anônima</p>
+          </div>
+
           <AuthTabs page="login" />
 
-          <div className="auth-heading">
-            <h1>Entrar no Sistema</h1>
-            <p>Informe seu e-mail para acessar sua conta</p>
-          </div>
+          <div className="auth-section-title">Entrar no Sistema</div>
+          <p className="auth-section-subtitle">Use seu e-mail cadastrado para acessar sua conta.</p>
 
           {error && <div className="auth-alert" role="alert">{error}</div>}
 
@@ -65,7 +79,9 @@ function LoginPage() {
               placeholder="estudante@universidade.edu"
               autoComplete="email"
             />
-            {touched.email && !emailValid && <small className="field-error">Digite um e-mail válido.</small>}
+            {touched.email && !emailValid && (
+              <small className="field-error">Digite um e-mail válido.</small>
+            )}
 
             <div className="password-label-row">
               <label htmlFor="login-password">Senha de Acesso</label>
@@ -83,10 +99,16 @@ function LoginPage() {
               placeholder="••••••••••••"
               autoComplete="current-password"
             />
-            {touched.password && !passwordValid && <small className="field-error">A senha é obrigatória.</small>}
+            {touched.password && !passwordValid && (
+              <small className="field-error">A senha é obrigatória.</small>
+            )}
 
             <label className="remember-row">
-              <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+              />
               <span>Lembrar de mim</span>
             </label>
 
@@ -97,12 +119,12 @@ function LoginPage() {
 
           <div className="auth-security">
             <strong><i className="bi bi-shield-lock-fill" /> Acesso Seguro e Protegido</strong>
-            <span>Identidade isolada das avaliações públicas garantindo anonimato total.</span>
+            <span>Sua conta é protegida com criptografia segura.</span>
           </div>
 
           <div className="auth-bottom">
             <span>Ainda não possui uma conta?</span>
-            <button type="button" className="auth-secondary" onClick={() => navigate('/register')}>
+            <button type="button" className="auth-secondary auth-secondary-green" onClick={() => navigate('/register')}>
               Criar Nova Conta
             </button>
           </div>
