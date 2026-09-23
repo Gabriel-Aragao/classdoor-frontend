@@ -19,7 +19,7 @@ function HomePage() {
     <div className="auth-page">
       <Navbar />
 
-      <div className="container pt-2 bg-white ">
+      <div className=" pt-2 bg-white p-4">
         <h1 className="fw-bold mt-4 text-primary text-center" style={{ fontSize: '26px', color: '#2C3E50' }}>
           Encontre opiniões reais sobre professores e disciplinas
         </h1>

@@ -8,7 +8,6 @@ function SearchBar({
   autoFocus = false,
 }) {
   const [internalValue, setInternalValue] = useState('');
-  
   const isControlled = value !== undefined;
   const currentValue = isControlled ? value : internalValue;
 
@@ -34,7 +33,7 @@ function SearchBar({
       onSubmit={handleSubmit}
       className={`search-bar-container ${className}`}
     >
-      <i className="bi bi-search search-bar-icon" aria-hidden="true"></i>
+      <i className="bi-search search-bar-icon"></i>
       <input
         type="text"
         className="search-bar-input"

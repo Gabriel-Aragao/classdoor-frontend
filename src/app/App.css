@@ -80,10 +80,6 @@ h1 {
   border-radius: 50%;
   display: inline-block;
 }
-
-
-<<<<<<< Updated upstream
-=======
 /* Card 006 - Login / Recuperação de senha */
 .auth-page {
   min-height: 100vh;
@@ -227,12 +223,12 @@ h1 {
   .auth-security { margin-top: 20px; }
 }
 
-/* Barra de Busca Integrada */
+
 .search-bar-container {
   display: flex;
   align-items: center;
   background-color: #ffffff;
-  border: 1.5px solid #dce4ec;
+  border: 1.5px solid #18BC9C;
   border-radius: 8px;
   padding: 6px 8px 6px 16px;
   max-width: 680px;
@@ -269,7 +265,7 @@ h1 {
 }
 
 .search-bar-input::placeholder {
-  color: #95a5a6;
+  color: #2C3E50;
   font-weight: 400;
   opacity: 1;
 }
@@ -309,4 +305,3 @@ h1 {
     font-size: 13.5px;
   }
 }
->>>>>>> Stashed changes
