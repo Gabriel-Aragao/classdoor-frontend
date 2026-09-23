@@ -1,17 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function SearchBar({
   value,
   onChange,
   onSearch,
+  onSearchDelayed,
   className = '',
   autoFocus = false,
 }) {
+
+  const [searchTerm, setSearchTerm] = useState('');
   const [internalValue, setInternalValue] = useState('');
   const isControlled = value !== undefined;
   const currentValue = isControlled ? value : internalValue;
 
+  useEffect(() => {
+
+    const timerId = setTimeout(() => {
+      if (onSearchDelayed) {
+        onSearchDelayed(searchTerm);
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchTerm, onSearchDelayed]);
+
   const handleChange = (e) => {
+    setSearchTerm(e.target.value)
     if (!isControlled) {
       setInternalValue(e.target.value);
     }
@@ -33,7 +50,7 @@ function SearchBar({
       onSubmit={handleSubmit}
       className={`search-bar-container ${className}`}
     >
-      <i className="bi-search search-bar-icon"></i>
+      <i className="bi bi-search search-bar-icon"></i>
       <input
         type="text"
         className="search-bar-input"
