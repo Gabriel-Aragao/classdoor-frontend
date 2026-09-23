@@ -1,17 +1,6 @@
-
-
-:root {
+ :root {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-@media (max-width: 390px) {
-  .card.register-card {
-    border: none !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-    padding: 1 !important;
-    max-width: 100% !important;
-  }
 }

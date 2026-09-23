@@ -7,6 +7,8 @@ function AuthTabs({ page }) {
     <div className="auth-tabs" role="tablist" aria-label="Autenticação">
       <button
         type="button"
+        role="tab"
+        aria-selected={page === 'login'}
         className={page === 'login' ? 'active' : ''}
         onClick={() => navigate('/login')}
       >
@@ -14,10 +16,12 @@ function AuthTabs({ page }) {
       </button>
       <button
         type="button"
+        role="tab"
+        aria-selected={page === 'register'}
         className={page === 'register' ? 'active' : ''}
         onClick={() => navigate('/register')}
       >
-        Criar Nova Conta
+        Criar Conta
       </button>
     </div>
   );
