@@ -351,3 +351,23 @@ h1 {
   color: #ffffff;
 }
 
+.filter-select {
+  height: 38px;
+  background-color: #ffffff;
+  color: #2c3e50;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: #18bc9c;
+  box-shadow: 0 0 0 2px rgba(24, 188, 156, 0.15);
+  outline: none;
+}
+
+

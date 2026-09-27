@@ -3,7 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import SearchBar from '../../components/SearchBar';
 import FilterButton from '../../components/FilterButton';
+import FilterSelect from '../../components/FilterSelect';
 import { authService } from '../../services/authService';
+
+const DEPARTMENTS = [
+  'Ciência da Computação',
+  'Engenharia Elétrica',
+  'Matemática & Estatística',
+  'Física Aplicada',
+  'Sistemas de Informação',
+  'Administração & Negócios',
+  'Design & Mídia Digital'
+];
 
 function HomePage() {
   const _navigate = useNavigate();
@@ -11,7 +22,7 @@ function HomePage() {
   const [query, setQuery] = useState('');
 
   const [tipobusca, setTipoBusca] = useState('Todos');
-  const [departamento, setDepartamento] = useState('');
+  const [departamento, setDepartamento] = useState('Ciência da Computação');
   const [semestre, setSemestre] = useState('');
   const [notaMinima, setNotaMinima] = useState('');
   
@@ -67,10 +78,13 @@ function HomePage() {
             onClick={() => setTipoBusca('Cursos')}
           />
         </div>
-        <p className="fw-semibold mx-2 mb-2" style={{ fontSize: '13px', color: '#2C3E50' }}>Departamento</p>
-        <div className="d-flex gap-2 mx-2 mb-3">
-          
-        </div>
+        <FilterSelect
+          label="Departamento"
+          value={departamento}
+          onChange={(e) => setDepartamento(e.target.value)}
+          options={DEPARTMENTS}
+          className="mx-2 mb-3"
+        />
       </div>
     </div>
   );
