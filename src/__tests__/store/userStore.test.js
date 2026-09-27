@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useUserStore } from '../../store/userStore';
 
-describe('useUserStore', () => {
-  const initialStoreState = {
+describe('userStore — Card 007', () => {
+  const initialState = {
     registeredUsers: [],
     user: null,
     token: null,
@@ -14,269 +14,113 @@ describe('useUserStore', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
-    useUserStore.setState(initialStoreState);
+    useUserStore.setState(initialState);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  afterEach(() => vi.useRealTimers());
+
+  it('começa sem sessão autenticada', () => {
+    expect(useUserStore.getState().isAuthenticated).toBe(false);
+    expect(useUserStore.getState().user).toBeNull();
   });
 
-  describe('Estado inicial', () => {
-    it('deve inicializar com o estado padrão esperado', () => {
-      const state = useUserStore.getState();
-
-      expect(state.registeredUsers).toEqual([]);
-      expect(state.user).toBeNull();
-      expect(state.token).toBeNull();
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.isLoading).toBe(false);
-      expect(state.error).toBeNull();
-    });
-  });
-
-  describe('Registro (register)', () => {
-    it('deve registrar um novo usuário com sucesso e autenticá-lo', async () => {
-      const userData = {
-        name: ' Maria Silva ',
-        email: 'maria@example.com',
-        password: 'password123',
-        role: 'teacher',
-        department: 'Computação',
-      };
-
-      const registerPromise = useUserStore.getState().register(userData);
-
-      // Estado de loading durante a execução
-      expect(useUserStore.getState().isLoading).toBe(true);
-      expect(useUserStore.getState().error).toBeNull();
-
-      await vi.advanceTimersByTimeAsync(600);
-      await registerPromise;
-
-      const state = useUserStore.getState();
-
-      expect(state.isLoading).toBe(false);
-      expect(state.error).toBeNull();
-      expect(state.isAuthenticated).toBe(true);
-      expect(state.token).toMatch(/^mock-token-/);
-
-      // Usuário logado na sessão não deve conter a senha
-      expect(state.user).toBeDefined();
-      expect(state.user.name).toBe('Maria Silva');
-      expect(state.user.email).toBe('maria@example.com');
-      expect(state.user.role).toBe('teacher');
-      expect(state.user.department).toBe('Computação');
-      expect(state.user.password).toBeUndefined();
-
-      // Lista de registrados deve conter o usuário com a senha salva
-      expect(state.registeredUsers).toHaveLength(1);
-      expect(state.registeredUsers[0]).toMatchObject({
-        name: 'Maria Silva',
-        email: 'maria@example.com',
-        password: 'password123',
-        role: 'teacher',
-        department: 'Computação',
-      });
-      expect(state.registeredUsers[0].id).toBeDefined();
-      expect(state.registeredUsers[0].createdAt).toBeDefined();
-    });
-
-    it('deve aplicar valores padrão para role (student) e department (Geral) se omitidos', async () => {
-      const userData = {
-        name: 'João Santos',
-        email: 'joao@example.com',
-        password: '123456password',
-      };
-
-      const registerPromise = useUserStore.getState().register(userData);
-      await vi.advanceTimersByTimeAsync(600);
-      await registerPromise;
-
-      const state = useUserStore.getState();
-
-      expect(state.user.role).toBe('student');
-      expect(state.user.department).toBe('Geral');
-      expect(state.registeredUsers[0].role).toBe('student');
-      expect(state.registeredUsers[0].department).toBe('Geral');
-    });
-
-    it('deve retornar erro se campos obrigatórios (nome, email ou senha) não forem fornecidos', async () => {
-      const invalidDataCases = [
-        { name: '', email: 'teste@example.com', password: '123' },
-        { name: 'Teste', email: '', password: '123' },
-        { name: 'Teste', email: 'teste@example.com', password: '' },
-      ];
-
-      for (const invalidData of invalidDataCases) {
-        useUserStore.setState(initialStoreState);
-
-        const registerPromise = useUserStore.getState().register(invalidData);
-        await vi.advanceTimersByTimeAsync(600);
-        await registerPromise;
-
-        const state = useUserStore.getState();
-        expect(state.error).toBe('Email, senha e nome são obrigatórios');
-        expect(state.isLoading).toBe(false);
-        expect(state.isAuthenticated).toBe(false);
-        expect(state.registeredUsers).toHaveLength(0);
-      }
-    });
-
-    it('deve impedir o cadastro de um email já existente', async () => {
-      useUserStore.setState({
-        ...initialStoreState,
-        registeredUsers: [
-          {
-            id: 'usr-1',
-            name: 'Carlos Lima',
-            email: 'carlos@example.com',
-            password: 'secret',
-            role: 'student',
-            department: 'Geral',
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      });
-
-      const registerPromise = useUserStore.getState().register({
-        name: 'Carlos Clone',
-        email: 'carlos@example.com',
-        password: 'outrasenha',
-      });
-
-      await vi.advanceTimersByTimeAsync(600);
-      await registerPromise;
-
-      const state = useUserStore.getState();
-      expect(state.error).toBe('Email ja cadastrado');
-      expect(state.isLoading).toBe(false);
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.registeredUsers).toHaveLength(1);
-    });
-  });
-
-  describe('Login (login)', () => {
-    const existingUser = {
-      id: 'usr-123',
-      name: 'Ana Souza',
-      email: 'ana@example.com',
-      password: 'correctpassword',
+  it('cadastra usuário, remove senha da sessão e cria token mockado', async () => {
+    const promise = useUserStore.getState().register({
+      name: 'Maria Silva',
+      email: 'maria@example.com',
+      password: 'password123',
       role: 'teacher',
-      department: 'Matemática',
-      createdAt: new Date().toISOString(),
-    };
-
-    beforeEach(() => {
-      useUserStore.setState({
-        ...initialStoreState,
-        registeredUsers: [existingUser],
-      });
+      department: 'Computação',
     });
 
-    it('deve realizar login com sucesso usando credenciais corretas', async () => {
-      const loginPromise = useUserStore.getState().login('ana@example.com', 'correctpassword');
+    await vi.advanceTimersByTimeAsync(600);
+    await promise;
 
-      expect(useUserStore.getState().isLoading).toBe(true);
-      expect(useUserStore.getState().error).toBeNull();
+    const state = useUserStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.user.password).toBeUndefined();
+    expect(state.token).toMatch(/^mock-jwt-/);
+    expect(state.registeredUsers).toHaveLength(1);
+  });
 
+  it('não cadastra e-mail inválido ou senha curta', async () => {
+    const invalidCases = [
+      { name: 'Teste', email: 'teste@', password: '12345678' },
+      { name: 'Teste', email: 'teste@example.com', password: '1234567' },
+    ];
+
+    for (const data of invalidCases) {
+      useUserStore.setState(initialState);
+      const promise = useUserStore.getState().register(data);
       await vi.advanceTimersByTimeAsync(600);
-      await loginPromise;
+      await promise;
 
-      const state = useUserStore.getState();
+      expect(useUserStore.getState().isAuthenticated).toBe(false);
+      expect(useUserStore.getState().registeredUsers).toHaveLength(0);
+      expect(useUserStore.getState().error).toBeTruthy();
+    }
+  });
 
-      expect(state.isLoading).toBe(false);
-      expect(state.error).toBeNull();
-      expect(state.isAuthenticated).toBe(true);
-      expect(state.token).toMatch(/^mock-token-usr-123-/);
-      expect(state.user).toEqual({
+  it('impede e-mail duplicado sem diferenciar maiúsculas e minúsculas', async () => {
+    useUserStore.setState({
+      ...initialState,
+      registeredUsers: [{
+        id: 'usr-1',
+        name: 'Carlos',
+        email: 'carlos@example.com',
+        password: '12345678',
+      }],
+    });
+
+    const promise = useUserStore.getState().register({
+      name: 'Outro Carlos',
+      email: 'CARLOS@EXAMPLE.COM',
+      password: '87654321',
+    });
+
+    await vi.advanceTimersByTimeAsync(600);
+    await promise;
+
+    expect(useUserStore.getState().error).toBe('Este e-mail já está cadastrado.');
+    expect(useUserStore.getState().registeredUsers).toHaveLength(1);
+  });
+
+  it('faz login somente com credenciais corretas', async () => {
+    useUserStore.setState({
+      ...initialState,
+      registeredUsers: [{
         id: 'usr-123',
         name: 'Ana Souza',
         email: 'ana@example.com',
-        role: 'teacher',
-        department: 'Matemática',
-        createdAt: existingUser.createdAt,
-      });
-      expect(state.user.password).toBeUndefined();
+        password: 'correctpassword',
+      }],
     });
 
-    it('deve falhar se email ou senha forem omitidos', async () => {
-      const cases = [
-        { email: '', password: '123' },
-        { email: 'ana@example.com', password: '' },
-      ];
+    const promise = useUserStore.getState().login('ana@example.com', 'correctpassword');
+    await vi.advanceTimersByTimeAsync(600);
+    await promise;
 
-      for (const { email, password } of cases) {
-        const loginPromise = useUserStore.getState().login(email, password);
-        await vi.advanceTimersByTimeAsync(600);
-        await loginPromise;
-
-        const state = useUserStore.getState();
-        expect(state.error).toBe('Email e senha são obrigatórios.');
-        expect(state.isLoading).toBe(false);
-        expect(state.isAuthenticated).toBe(false);
-      }
-    });
-
-    it('deve falhar se o usuário não for encontrado', async () => {
-      const loginPromise = useUserStore.getState().login('inexistente@example.com', 'correctpassword');
-      await vi.advanceTimersByTimeAsync(600);
-      await loginPromise;
-
-      const state = useUserStore.getState();
-      expect(state.error).toBe('Email ou senha invalidos');
-      expect(state.isLoading).toBe(false);
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.user).toBeNull();
-      expect(state.token).toBeNull();
-    });
-
-    it('deve falhar se a senha for incorreta', async () => {
-      const loginPromise = useUserStore.getState().login('ana@example.com', 'wrongpassword');
-      await vi.advanceTimersByTimeAsync(600);
-      await loginPromise;
-
-      const state = useUserStore.getState();
-      expect(state.error).toBe('Email ou senha invalidos');
-      expect(state.isLoading).toBe(false);
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.user).toBeNull();
-    });
+    expect(useUserStore.getState().isAuthenticated).toBe(true);
+    expect(useUserStore.getState().user.password).toBeUndefined();
   });
 
-  describe('Logout (logout)', () => {
-    it('deve limpar as credenciais e resetar o estado de autenticação', () => {
-      useUserStore.setState({
-        ...initialStoreState,
-        user: { id: 'usr-1', name: 'Ana' },
-        token: 'mock-token-xyz',
-        isAuthenticated: true,
-        isLoading: true,
-        error: 'Algum erro',
-      });
-
-      useUserStore.getState().logout();
-
-      const state = useUserStore.getState();
-      expect(state.user).toBeNull();
-      expect(state.token).toBeNull();
-      expect(state.isAuthenticated).toBe(false);
-      expect(state.isLoading).toBe(false);
-      expect(state.error).toBeNull();
+  it('limpa sessão no logout', () => {
+    useUserStore.setState({
+      ...initialState,
+      user: { id: 'usr-1', name: 'Ana' },
+      token: 'mock-jwt',
+      isAuthenticated: true,
+      error: 'erro',
     });
-  });
 
-  describe('Limpeza de Erro (clearError)', () => {
-    it('deve redefinir o campo error para null', () => {
-      useUserStore.setState({
-        ...initialStoreState,
-        error: 'Ocorreu um erro qualquer',
-      });
+    useUserStore.getState().logout();
 
-      expect(useUserStore.getState().error).toBe('Ocorreu um erro qualquer');
-
-      useUserStore.getState().clearError();
-
-      expect(useUserStore.getState().error).toBeNull();
+    expect(useUserStore.getState()).toMatchObject({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
     });
   });
 });

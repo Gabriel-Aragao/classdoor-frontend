@@ -1,13 +1,30 @@
-function AuthTabs({page}) {
-    return (
-    <div className="bg-light w-100 p-1 d-flex rounded" >
-        <button type="button" className={`fw-bold btn me-1 w-100 border-0 ${page === "register" ? "bg-white shadow-sm" : "btn-success"}`} style={{ color: page === "register" ? "#7B8A8B" : "#FFFFFF", backgroundColor: page === "register" ? "#FFFFFF" : "#2C3E50" }}>
-            Acessar Conta
-        </button>
-        <button type="button" className={`fw-bold w-100 border-0 ${page === "register" ? "btn btn-success" : "bg-white shadow-sm"}`}>
-            Criar Nova Conta
-        </button>
+import { useNavigate } from 'react-router-dom';
+
+function AuthTabs({ page }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="auth-tabs" role="tablist" aria-label="Autenticação">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={page === 'login'}
+        className={page === 'login' ? 'active' : ''}
+        onClick={() => navigate('/login')}
+      >
+        Acessar Conta
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={page === 'register'}
+        className={page === 'register' ? 'active' : ''}
+        onClick={() => navigate('/register')}
+      >
+        Criar Conta
+      </button>
     </div>
-    )
+  );
 }
+
 export default AuthTabs;

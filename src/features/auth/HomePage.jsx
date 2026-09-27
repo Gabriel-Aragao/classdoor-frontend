@@ -5,16 +5,7 @@ import SearchBar from '../../components/SearchBar';
 import FilterButton from '../../components/FilterButton';
 import FilterSelect from '../../components/FilterSelect';
 import { authService } from '../../services/authService';
-
-const DEPARTMENTS = [
-  'Ciência da Computação',
-  'Engenharia Elétrica',
-  'Matemática & Estatística',
-  'Física Aplicada',
-  'Sistemas de Informação',
-  'Administração & Negócios',
-  'Design & Mídia Digital'
-];
+import { DEPARTMENTS } from '../../services/mockCatalogData';
 
 function HomePage() {
   const _navigate = useNavigate();
@@ -25,18 +16,16 @@ function HomePage() {
   const [departamento, setDepartamento] = useState('Ciência da Computação');
   const [semestre, setSemestre] = useState('');
   const [notaMinima, setNotaMinima] = useState('');
-  
 
   const handleSearch = (searchTerm) => {
     if (!searchTerm?.trim()) return;
-   
   };
 
   return (
     <div className="auth-page">
       <Navbar />
 
-      <div className=" pt-2 bg-white p-4">
+      <div className="pt-2 bg-white p-4">
         <h1 className="fw-bold mt-4 text-primary text-center" style={{ fontSize: '26px', color: '#2C3E50' }}>
           Encontre opiniões reais sobre professores e disciplinas
         </h1>
@@ -78,6 +67,7 @@ function HomePage() {
             onClick={() => setTipoBusca('Cursos')}
           />
         </div>
+
         <FilterSelect
           label="Departamento"
           value={departamento}
