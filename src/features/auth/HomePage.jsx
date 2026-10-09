@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import Navbar from '../../components/layout/Navbar';
 import SearchBar from '../../components/SearchBar';
 import FilterButton from '../../components/FilterButton';
 import FilterSelect from '../../components/FilterSelect';
 import RatingFilter from '../../components/RatingFilter';
 import { DEPARTMENTS } from '../../services/mockCatalogData';
-import mockProfessorService from '../../services/mockProfessorService';
+import { useCatalogSearch, useProfessors, useCourses } from '../../hooks/useCatalog';
 import ResultCard from '../../components/ResultCard';
 
 function HomePage() {
@@ -16,21 +16,8 @@ function HomePage() {
   const [departamento, setDepartamento] = useState('Ciência da Computação');
   const [semestre, setSemestre] = useState('2026.1 (Atual)');
   const [notaMinima, setNotaMinima] = useState(4.0);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchSuggestions, setSearchSuggestions] = useState(null);
 
-  useEffect(() => {
-    if (query.trim().length < 1) {
-      setSearchSuggestions(null);
-      return;
-    }
-    let cancelled = false;
-    mockProfessorService.searchGlobal({ query, limit: 4, delayMs: 80 }).then((data) => {
-      if (!cancelled) setSearchSuggestions(data);
-    });
-    return () => { cancelled = true; };
-  }, [query]);
+  const {data: searchSuggestions} = useCatalogSearch(query, 4);
 
   const SEMESTERTests = [
     '2026.1 (Atual)',
@@ -44,75 +31,58 @@ function HomePage() {
     '8º Semestre'
   ];
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
+  const {data: professors, isLoading: loadingProfessors} = useProfessors(
+    {query,
+      department : departamento === 'Todos' ? '' : departamento,
+      size: 20,
+    }, {
+      enabled: tipobusca === 'Todos' || tipobusca === 'Docentes'
+    }
+  );
+  const {data: courses, isLoading: loadingCourses} = useCourses({
+    query,
+    department : departamento === 'Todos' ? '' : departamento,
+    size: 20,
+  }, {
+    enabled: tipobusca === 'Todos' || tipobusca === 'Cursos'
+  });
+  const loading = (tipobusca !== "Cursos" && loadingProfessors) || (tipobusca !== "Docentes" && loadingCourses);
 
-    async function loadCatalogData() {
-      try {
-        let professors = [];
-        let courses = [];
+  const results = useMemo(() => {
+    let professorResults = [];
+    let courseResults = [];
 
-        // 1. Busca Professores se tipo for 'Todos' ou 'Docentes'
-        if (tipobusca === 'Todos' || tipobusca === 'Docentes') {
-          const profResponse = await mockProfessorService.getProfessors({
-            query,
-            department: departamento === 'Todos' ? '' : departamento,
-            size: 20
-          });
-
-          professors = profResponse.content.map((p, idx) => ({
-            id: p.id,
-            type: 'professor',
-            title: p.name,
-            subtitle: p.department,
-            rating: p.averageRating,
-            reviewsCount: p.totalReviews,
-            avatarColor: idx % 2 === 0 ? 'green' : 'blue'
-          }));
-        }
-
-        // 2. Busca Cursos se tipo for 'Todos' ou 'Cursos'
-        if (tipobusca === 'Todos' || tipobusca === 'Cursos') {
-          const courseResponse = await mockProfessorService.getCourses({
-            query,
-            department: departamento === 'Todos' ? '' : departamento,
-            size: 20
-          });
-
-          courses = courseResponse.content.map((c) => ({
-            id: c.id,
-            type: 'course',
-            title: c.name,
-            subtitle: `${c.code} • ${c.credits ? `${c.credits * 15}h` : '60h'}`,
-            rating: c.averageRating,
-            reviewsCount: c.totalReviews,
-            avatarColor: 'orange'
-          }));
-        }
-
-        // 3. Combina os resultados e filtra por nota mínima
-        let combined = [...professors, ...courses];
-        if (notaMinima) {
-          combined = combined.filter((item) => item.rating >= Number(notaMinima));
-        }
-
-        if (isMounted) {
-          setResults(combined);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Erro ao consultar dados mockados:', error);
-        if (isMounted) setLoading(false);
-      }
+    if(tipobusca === "Todos" || tipobusca === "Docentes") {
+      professorResults = (professors?.content || []).map((p, idx) => ({
+        id: p.id,
+        type: 'professor',
+        title: p.name,
+        subtitle: p.department,
+        rating: p.averageRating,
+        reviewsCount: p.totalReviews,
+        avatarColor: idx % 2 == 0 ? "green" : "blue"
+      }))
     }
 
-    loadCatalogData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [tipobusca, departamento, notaMinima, query]);
+    if (tipobusca === "Todos" || tipobusca === "Cursos") {
+      courseResults = (courses?.content || []).map(c => ({
+        id: c.id,
+        type: 'course',
+        title: c.name,
+        subtitle: `${c.code} • ${c.credits ? `${c.credits * 15}h` : '60h'}`,
+        rating: c.averageRating,
+        reviewsCount: c.totalReviews,
+        avatarColor: "orange"
+      }))
+    }
+    let combinedResults = [...professorResults, ...courseResults];
+    if (notaMinima) {
+      combinedResults = combinedResults.filter((item) =>
+      item.rating >= Number(notaMinima))
+    }
+    return combinedResults;
+  }, [professors, courses, tipobusca, notaMinima])
+    
 
   const handleFilterSearch = () => {
     setTipoBusca('Todos');
