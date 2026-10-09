@@ -1,30 +1,37 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import SearchBar from '../../components/SearchBar';
 import FilterButton from '../../components/FilterButton';
 import FilterSelect from '../../components/FilterSelect';
 import RatingFilter from '../../components/RatingFilter';
-import { authService } from '../../services/authService';
 import { DEPARTMENTS } from '../../services/mockCatalogData';
 import mockProfessorService from '../../services/mockProfessorService';
 import ResultCard from '../../components/ResultCard';
 
 function HomePage() {
-  const _navigate = useNavigate();
-  const _user = authService.getCurrentUser();
+  const [searchInputValue, setSearchInputValue] = useState('');
   const [query, setQuery] = useState('');
 
   const [tipobusca, setTipoBusca] = useState('Todos');
   const [departamento, setDepartamento] = useState('Ciência da Computação');
   const [semestre, setSemestre] = useState('2026.1 (Atual)');
   const [notaMinima, setNotaMinima] = useState(4.0);
-
-  // Estados dos resultados vindos do mock
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchSuggestions, setSearchSuggestions] = useState(null);
 
-  // Lista para seleção de semestres
+  useEffect(() => {
+    if (query.trim().length < 1) {
+      setSearchSuggestions(null);
+      return;
+    }
+    let cancelled = false;
+    mockProfessorService.searchGlobal({ query, limit: 4, delayMs: 80 }).then((data) => {
+      if (!cancelled) setSearchSuggestions(data);
+    });
+    return () => { cancelled = true; };
+  }, [query]);
+
   const SEMESTERTests = [
     '2026.1 (Atual)',
     '1º Semestre',
@@ -37,7 +44,6 @@ function HomePage() {
     '8º Semestre'
   ];
 
-  // Efeito que carrega e filtra os dados do mock sempre que um filtro mudar
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -114,10 +120,20 @@ function HomePage() {
     setSemestre('2026.1 (Atual)');
     setNotaMinima(4.0);
     setQuery('');
+    setSearchInputValue('');
   };
 
   const handleSearch = (searchTerm) => {
-    setQuery(searchTerm || '');
+    const term = searchTerm || '';
+    setSearchInputValue(term);
+    setQuery(term)
+  };
+
+
+  const handleSuggestionClick = (item) => {
+    const nome = item.name || '';
+    setSearchInputValue(nome);
+    setQuery(nome);
   };
 
   return (
@@ -133,9 +149,12 @@ function HomePage() {
         </p>
 
         <SearchBar
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={searchInputValue}
+          onChange={(e) => setSearchInputValue(e.target.value)}
+          onSearchDelayed={(delayedTerm) => setQuery(delayedTerm)}
           onSearch={handleSearch}
+          suggestions={searchSuggestions}
+          onSuggestionClick={handleSuggestionClick}
           className="mx-auto"
         />
       </div>
@@ -149,7 +168,7 @@ function HomePage() {
             </p>
           </div>
 
-          <p className="fw-semibold mx-2 mb-2" style={{ fontSize: '13px', color: '#2C3E50' }}>Tipo de Busca</p>       
+          <p className="fw-semibold mx-2 mb-2" style={{ fontSize: '13px', color: '#2C3E50' }}>Tipo de Busca</p>
           <div className="d-flex gap-2 mx-2 mb-3">
             <FilterButton
               label="Todos"
@@ -190,14 +209,14 @@ function HomePage() {
             className="mx-2 mb-3"
           />
           <button
-              className="btn w-100 bg-white fw-semibold mt-1" style={{borderColor: "#CED4DA"}}
-              onClick={handleFilterSearch}
-            >
-              <i className='fw-semibold'style={{fontSize: "14px", color: "#7B8A8B"}}>Limpar Filtros</i>
-            </button>
+            className="btn w-100 bg-white fw-semibold mt-1" style={{ borderColor: "#CED4DA" }}
+            onClick={handleFilterSearch}
+          >
+            <i className='fw-semibold' style={{ fontSize: "14px", color: "#7B8A8B" }}>Limpar Filtros</i>
+          </button>
         </aside>
-        
-        
+
+
         <main className="flex-grow-1 pt-2">
           <div className="d-flex align-items-center justify-content-between mb-3">
             <p className="fw-bold mb-0" style={{ fontSize: '18px', color: '#2C3E50' }}>
@@ -226,15 +245,14 @@ function HomePage() {
                   subtitle={item.subtitle}
                   rating={item.rating}
                   reviewsCount={item.reviewsCount}
-                  isPrimaryButton={idx === false}
-                  onViewProfile={() => console.log('Visualizar perfil:', item.id, item.title)}
+                  isPrimaryButton={idx === 0}
                 />
               ))}
             </div>
           )}
         </main>
       </div>
-      
+
     </div>
   );
 }
