@@ -215,7 +215,6 @@ function HomePage() {
                   subtitle={item.subtitle}
                   rating={item.rating}
                   reviewsCount={item.reviewsCount}
-                  isPrimaryButton={idx === 0}
                 />
               ))}
             </div>

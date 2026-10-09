@@ -14,7 +14,7 @@ function ResultCard({
   subtitle,
   rating,
   reviewsCount,
-  isPrimaryButton = false,
+  isPrimaryButton = true,
   buttonText = 'Ver Perfil Completo',
   onViewProfile,
   className = '',
