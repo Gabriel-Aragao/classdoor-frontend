@@ -17,7 +17,7 @@ function HomePage() {
   const [semestre, setSemestre] = useState('2026.1 (Atual)');
   const [notaMinima, setNotaMinima] = useState(4.0);
 
-  const {data: searchSuggestions} = useCatalogSearch(query, 4);
+  const { data: searchSuggestions } = useCatalogSearch(searchInputValue, 4);
 
   const SEMESTERTests = [
     '2026.1 (Atual)',
@@ -215,6 +215,7 @@ function HomePage() {
                   subtitle={item.subtitle}
                   rating={item.rating}
                   reviewsCount={item.reviewsCount}
+                  isPrimaryButton={idx === 0}
                 />
               ))}
             </div>
