@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from '../features/auth/LoginPage';
 import RegisterPage from '../features/auth/RegisterPage';
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
+import ProfessorProfilePage from '../features/catalog/ProfessorProfilePage';
+import CourseProfilePage from '../features/catalog/CourseProfilePage';
 import HomePage from '../features/auth/HomePage';
 import { authService } from '../services/authService';
 
@@ -21,6 +23,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <HomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/professores/:id"
+        element={
+          <ProtectedRoute>
+            <ProfessorProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/disciplinas/:id"
+        element={
+          <ProtectedRoute>
+            <CourseProfilePage />
           </ProtectedRoute>
         }
       />
