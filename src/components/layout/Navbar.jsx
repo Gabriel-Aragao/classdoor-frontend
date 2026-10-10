@@ -1,10 +1,12 @@
+import { Link } from 'react-router-dom';
+
 function Navbar() {
   return (
     <header className="classdoor-navbar">
-      <a className="classdoor-brand" href="/login" aria-label="Classdoor - Login">
-        <i className="bi bi-mortarboard-fill" aria-hidden="true" />
-        Classdoor
-      </a>
+      <Link className="classdoor-brand" to="/login" aria-label="Classdoor - Início">
+        <i className="bi bi-mortarboard-fill classdoor-brand-icon" aria-hidden="true" />
+        <span>Classdoor</span>
+      </Link>
 
       <nav className="classdoor-nav-links" aria-label="Links institucionais">
         <a href="#ajuda">Ajuda &amp; FAQ</a>
