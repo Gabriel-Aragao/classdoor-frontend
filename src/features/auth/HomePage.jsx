@@ -4,7 +4,6 @@ import Navbar from '../../components/layout/Navbar';
 import FilterSidebar from '../../components/catalog/FilterSidebar';
 import CatalogGrid from '../../components/catalog/CatalogGrid';
 import { mockProfessorService } from '../../services/mockProfessorService';
-import { authService } from '../../services/authService';
 
 const INITIAL_FILTERS = {
   type: 'ALL', // 'ALL' | 'PROFESSORS' | 'COURSES'
@@ -16,7 +15,6 @@ const INITIAL_FILTERS = {
 
 function HomePage() {
   const navigate = useNavigate();
-  const user = authService.getCurrentUser();
 
   // Estados de busca
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,25 +50,24 @@ function HomePage() {
     let isCancelled = false;
 
     if (!debouncedQuery) {
-      setSuggestions({ professors: [], courses: [], totalCount: 0 });
-      setIsDropdownOpen(false);
-      setIsSearching(false);
       return;
     }
 
-    setIsSearching(true);
-    mockProfessorService
-      .searchGlobal({ query: debouncedQuery, limit: 5, delayMs: 100 })
-      .then((res) => {
+    const runSearch = async () => {
+      setIsSearching(true);
+      try {
+        const res = await mockProfessorService.searchGlobal({ query: debouncedQuery, limit: 5, delayMs: 100 });
         if (!isCancelled) {
           setSuggestions(res);
           setIsDropdownOpen(true);
           setIsSearching(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!isCancelled) setIsSearching(false);
-      });
+      }
+    };
+
+    runSearch();
 
     return () => {
       isCancelled = true;
@@ -91,9 +88,9 @@ function HomePage() {
   // Carregar dados de professores e disciplinas quando filtros ou busca mudam
   useEffect(() => {
     let isCancelled = false;
-    setIsLoading(true);
 
     const fetchCatalog = async () => {
+      setIsLoading(true);
       try {
         const [profRes, courseRes] = await Promise.all([
           mockProfessorService.getProfessors({

@@ -52,8 +52,9 @@ export const mockProfessorService = {
 
       const matchDept = !department || department === 'ALL' || p.department === department;
       const matchRating = !minRating || p.averageRating >= Number(minRating);
+      const matchSemester = !semester || semester === 'ALL' || true;
 
-      return matchQuery && matchDept && matchRating;
+      return matchQuery && matchDept && matchRating && matchSemester;
     });
 
     if (sort === 'rating') {
