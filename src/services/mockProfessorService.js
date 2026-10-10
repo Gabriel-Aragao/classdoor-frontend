@@ -20,6 +20,8 @@ export const mockProfessorService = {
    * @param {Object} params
    * @param {string} [params.query=''] - Termo de busca (nome, departamento, tag, matéria)
    * @param {string} [params.department=''] - Filtro por departamento
+   * @param {number} [params.minRating=0] - Filtro de nota mínima (1 a 5 estrelas)
+   * @param {string} [params.semester=''] - Filtro de período letivo
    * @param {number} [params.page=0] - Número da página (0-indexed)
    * @param {number} [params.size=10] - Quantidade por página
    * @param {string} [params.sort='rating'] - Ordenação ('rating', 'reviews', 'name', 'difficulty')
@@ -29,6 +31,8 @@ export const mockProfessorService = {
   async getProfessors({
     query = '',
     department = '',
+    minRating = 0,
+    semester = '',
     page = 0,
     size = 10,
     sort = 'rating',
@@ -46,9 +50,10 @@ export const mockProfessorService = {
         p.coursesTaught?.some((c) => c.toLowerCase().includes(cleanQuery)) ||
         p.topTags.some((t) => t.toLowerCase().includes(cleanQuery));
 
-      const matchDept = !department || p.department === department;
+      const matchDept = !department || department === 'ALL' || p.department === department;
+      const matchRating = !minRating || p.averageRating >= Number(minRating);
 
-      return matchQuery && matchDept;
+      return matchQuery && matchDept && matchRating;
     });
 
     if (sort === 'rating') {
@@ -81,6 +86,8 @@ export const mockProfessorService = {
    * @param {Object} params
    * @param {string} [params.query=''] - Termo de busca (nome, código, departamento, tag)
    * @param {string} [params.department=''] - Filtro por departamento
+   * @param {number} [params.minRating=0] - Filtro de nota mínima (1 a 5 estrelas)
+   * @param {string} [params.semester=''] - Filtro de período letivo
    * @param {number} [params.page=0] - Número da página (0-indexed)
    * @param {number} [params.size=10] - Quantidade por página
    * @param {string} [params.sort='rating'] - Ordenação ('rating', 'reviews', 'code', 'name')
@@ -90,6 +97,8 @@ export const mockProfessorService = {
   async getCourses({
     query = '',
     department = '',
+    minRating = 0,
+    semester = '',
     page = 0,
     size = 10,
     sort = 'rating',
@@ -107,9 +116,16 @@ export const mockProfessorService = {
         c.department.toLowerCase().includes(cleanQuery) ||
         c.topTags.some((t) => t.toLowerCase().includes(cleanQuery));
 
-      const matchDept = !department || c.department === department;
+      const matchDept = !department || department === 'ALL' || c.department === department;
+      const matchRating = !minRating || c.averageRating >= Number(minRating);
+      const matchSemester =
+        !semester ||
+        semester === 'ALL' ||
+        c.semester === semester ||
+        (semester === '2026.1' && (c.semester?.includes('1º') || c.semester?.includes('3º') || c.semester?.includes('5º'))) ||
+        (semester === '2026.2' && (c.semester?.includes('2º') || c.semester?.includes('4º') || c.semester?.includes('6º')));
 
-      return matchQuery && matchDept;
+      return matchQuery && matchDept && matchRating && matchSemester;
     });
 
     if (sort === 'rating') {
