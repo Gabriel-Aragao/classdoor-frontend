@@ -214,3 +214,5 @@ export const mockProfessorService = {
     return [...DEPARTMENTS];
   }
 };
+
+export default mockProfessorService;
