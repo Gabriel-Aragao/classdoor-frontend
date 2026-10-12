@@ -15,7 +15,13 @@ describe('ReviewModal Component (Card 014)', () => {
       />
     );
 
-    // Preencher form
+    // Precisa selecionar uma nota (clicar no botão de star)
+    const starButtons = screen.getAllByRole('button');
+    // Pegar apenas os botões das estrelas
+    const starInputButtons = starButtons.filter(b => b.className === 'btn p-0');
+    fireEvent.click(starInputButtons[4]); // Clica na 5ª estrela
+    
+    // Preencher comentário
     fireEvent.change(screen.getByPlaceholderText(/Conte sobre sua experiência/i), { target: { value: 'Comentário longo o suficiente para validação.' } });
     
     // Submeter
