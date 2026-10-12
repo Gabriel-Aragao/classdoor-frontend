@@ -20,14 +20,12 @@ export function useReviews({
 
   // Carregar turmas associadas para o formulário de avaliação
   useEffect(() => {
-    let isMounted = true;
     try {
       const availableClasses = mockReviewService.getClasses({ professorId, courseId });
-      if (isMounted) setClasses(availableClasses);
-    } catch (_) {
-      console.error('Erro ao buscar turmas para avaliação:');
+      setClasses(availableClasses);
+    } catch (e) {
+      console.error('Erro ao buscar turmas para avaliação:', e);
     }
-    return () => { isMounted = false; };
   }, [professorId, courseId]);
 
   // Carregar avaliações e métricas
