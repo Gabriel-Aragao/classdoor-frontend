@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { mockClassService } from '../../services/mockClassService';
 
 function ProfessorClassesPanel({ professorId }) {
-  const [classes, setClasses] = useState(mockClassService.getClassesByProfessor(professorId));
+  const [classes] = useState(mockClassService.getClassesByProfessor(professorId));
   
   const semesters = [...new Set(classes.map(c => c.semester))].sort().reverse();
 

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useReviews } from '../../hooks/useReviews';
-import RatingStars from '../ui/RatingStars';
 import StarRatingInput from './StarRatingInput';
 import DifficultySlider from './DifficultySlider';
 import AnonymityToggle from './AnonymityToggle';

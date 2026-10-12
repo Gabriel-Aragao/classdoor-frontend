@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import RatingStars from '../ui/RatingStars';
 
 function StarRatingInput({ value, onChange, max = 5 }) {
   const [hover, setHover] = useState(0);

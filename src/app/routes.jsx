@@ -5,12 +5,16 @@ import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
 import ProfessorProfilePage from '../features/catalog/ProfessorProfilePage';
 import CourseProfilePage from '../features/catalog/CourseProfilePage';
 import HomePage from '../features/auth/HomePage';
+import { authService } from '../services/authService';
+
+function ProtectedRoute({ children }) {
+  return authService.isAuthenticated() ? children : <Navigate to="/login" replace />;
+}
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/home" element={<HomePage />} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />

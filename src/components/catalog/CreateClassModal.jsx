@@ -4,7 +4,7 @@ import { mockClassService } from '../../services/mockClassService';
 function CreateClassModal({ isOpen, onClose, onCreated }) {
   const [courseName, setCourseName] = useState('');
   const [code, setCode] = useState('');
-  const [semester, setSemester] = useState('2026.2');
+  const [semester] = useState('2026.2');
 
   const handleSubmit = async (e) => {
     e.preventDefault();

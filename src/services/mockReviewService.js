@@ -23,7 +23,7 @@ export const generateAuditHash = async (identifier, classId) => {
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-    } catch (e) {
+    } catch {
       // Fallback para ambientes sem crypto.subtle
     }
   }
@@ -56,7 +56,7 @@ export const mockReviewService = {
         const matchCourse = !filters.courseId || c.courseId === filters.courseId;
         return matchProf && matchCourse;
       });
-    } catch (e) {
+    } catch {
       return MOCK_CLASSES;
     }
   },
@@ -80,7 +80,7 @@ export const mockReviewService = {
       }
       localStorage.setItem(STORAGE_KEY_REVIEWS, JSON.stringify(INITIAL_MOCK_REVIEWS));
       return [...INITIAL_MOCK_REVIEWS];
-    } catch (e) {
+    } catch {
       return [...INITIAL_MOCK_REVIEWS];
     }
   },
@@ -91,8 +91,8 @@ export const mockReviewService = {
   saveReviews(reviews) {
     try {
       localStorage.setItem(STORAGE_KEY_REVIEWS, JSON.stringify(reviews));
-    } catch (e) {
-      console.error('Erro ao salvar avaliações no localStorage:', e);
+    } catch {
+      console.error('Erro ao salvar avaliações no localStorage:');
     }
   },
 
@@ -103,7 +103,7 @@ export const mockReviewService = {
     try {
       localStorage.setItem(STORAGE_KEY_REVIEWS, JSON.stringify(INITIAL_MOCK_REVIEWS));
       localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(MOCK_CLASSES));
-    } catch (e) {
+    } catch {
       // ignore
     }
   },

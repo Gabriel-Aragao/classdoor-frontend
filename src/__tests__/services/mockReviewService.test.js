@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mockReviewService, generateAuditHash } from '../../services/mockReviewService';
+import { mockReviewService } from '../../services/mockReviewService';
 
 describe('mockReviewService (US04, US05, US06, US07 / Card 012)', () => {
   beforeEach(() => {

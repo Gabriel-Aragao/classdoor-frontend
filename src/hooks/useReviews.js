@@ -22,6 +22,7 @@ export function useReviews({
   useEffect(() => {
     try {
       const availableClasses = mockReviewService.getClasses({ professorId, courseId });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClasses(availableClasses);
     } catch (e) {
       console.error('Erro ao buscar turmas para avaliação:', e);
@@ -69,6 +70,7 @@ export function useReviews({
   }, [professorId, courseId, sort, page, pageSize]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchReviews();
   }, [fetchReviews]);
 
