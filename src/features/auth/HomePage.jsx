@@ -1,228 +1,411 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
-import SearchBar from '../../components/SearchBar';
-import FilterButton from '../../components/FilterButton';
-import FilterSelect from '../../components/FilterSelect';
-import RatingFilter from '../../components/RatingFilter';
-import { DEPARTMENTS } from '../../services/mockCatalogData';
-import { useCatalogSearch, useProfessors, useCourses } from '../../hooks/useCatalog';
-import ResultCard from '../../components/ResultCard';
+import FilterSidebar from '../../components/catalog/FilterSidebar';
+import CatalogGrid from '../../components/catalog/CatalogGrid';
+import { mockProfessorService } from '../../services/mockProfessorService';
+
+const INITIAL_FILTERS = {
+  type: 'ALL', // 'ALL' | 'PROFESSORS' | 'COURSES'
+  department: 'ALL',
+  semester: 'ALL',
+  minRating: 0,
+  sort: 'rating',
+};
 
 function HomePage() {
-  const [searchInputValue, setSearchInputValue] = useState('');
-  const [query, setQuery] = useState('');
+  const navigate = useNavigate();
 
-  const [tipobusca, setTipoBusca] = useState('Todos');
-  const [departamento, setDepartamento] = useState('Ciência da Computação');
-  const [semestre, setSemestre] = useState('2026.1 (Atual)');
-  const [notaMinima, setNotaMinima] = useState(4.0);
+  // Estados de busca
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState({ professors: [], courses: [], totalCount: 0 });
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const searchBoxRef = useRef(null);
 
-  const { data: searchSuggestions } = useCatalogSearch(searchInputValue, 4);
+  // Estados de filtros e catálogo
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [professors, setProfessors] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const SEMESTERTests = [
-    '2026.1 (Atual)',
-    '1º Semestre',
-    '2º Semestre',
-    '3º Semestre',
-    '4º Semestre',
-    '5º Semestre',
-    '6º Semestre',
-    '7º Semestre',
-    '8º Semestre'
-  ];
+  // Debounce do termo de busca (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchTerm.trim());
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-  const {data: professors, isLoading: loadingProfessors} = useProfessors(
-    {query,
-      department : departamento === 'Todos' ? '' : departamento,
-      size: 20,
-    }, {
-      enabled: tipobusca === 'Todos' || tipobusca === 'Docentes'
-    }
-  );
-  const {data: courses, isLoading: loadingCourses} = useCourses({
-    query,
-    department : departamento === 'Todos' ? '' : departamento,
-    size: 20,
-  }, {
-    enabled: tipobusca === 'Todos' || tipobusca === 'Cursos'
-  });
-  const loading = (tipobusca !== "Cursos" && loadingProfessors) || (tipobusca !== "Docentes" && loadingCourses);
+  // Carregar departamentos iniciais
+  useEffect(() => {
+    mockProfessorService.getDepartments({ delayMs: 0 }).then(setDepartments);
+  }, []);
 
-  const results = useMemo(() => {
-    let professorResults = [];
-    let courseResults = [];
+  // Autocomplete ao digitar na barra de pesquisa
+  useEffect(() => {
+    let isCancelled = false;
 
-    if(tipobusca === "Todos" || tipobusca === "Docentes") {
-      professorResults = (professors?.content || []).map((p, idx) => ({
-        id: p.id,
-        type: 'professor',
-        title: p.name,
-        subtitle: p.department,
-        rating: p.averageRating,
-        reviewsCount: p.totalReviews,
-        avatarColor: idx % 2 == 0 ? "green" : "blue"
-      }))
+    if (!debouncedQuery) {
+      return;
     }
 
-    if (tipobusca === "Todos" || tipobusca === "Cursos") {
-      courseResults = (courses?.content || []).map(c => ({
-        id: c.id,
-        type: 'course',
-        title: c.name,
-        subtitle: `${c.code} • ${c.credits ? `${c.credits * 15}h` : '60h'}`,
-        rating: c.averageRating,
-        reviewsCount: c.totalReviews,
-        avatarColor: "orange"
-      }))
-    }
-    let combinedResults = [...professorResults, ...courseResults];
-    if (notaMinima) {
-      combinedResults = combinedResults.filter((item) =>
-      item.rating >= Number(notaMinima))
-    }
-    return combinedResults;
-  }, [professors, courses, tipobusca, notaMinima])
-    
+    const runSearch = async () => {
+      setIsSearching(true);
+      try {
+        const res = await mockProfessorService.searchGlobal({ query: debouncedQuery, limit: 5, delayMs: 100 });
+        if (!isCancelled) {
+          setSuggestions(res);
+          setIsDropdownOpen(true);
+          setIsSearching(false);
+        }
+      } catch {
+        if (!isCancelled) setIsSearching(false);
+      }
+    };
 
-  const handleFilterSearch = () => {
-    setTipoBusca('Todos');
-    setDepartamento('Ciência da Computação');
-    setSemestre('2026.1 (Atual)');
-    setNotaMinima(4.0);
-    setQuery('');
-    setSearchInputValue('');
+    runSearch();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedQuery]);
+
+  // Fechar dropdown de sugestões ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Carregar dados de professores e disciplinas quando filtros ou busca mudam
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchCatalog = async () => {
+      setIsLoading(true);
+      try {
+        const [profRes, courseRes] = await Promise.all([
+          mockProfessorService.getProfessors({
+            query: debouncedQuery,
+            department: filters.department,
+            minRating: filters.minRating,
+            semester: filters.semester,
+            sort: filters.sort,
+            delayMs: 200,
+          }),
+          mockProfessorService.getCourses({
+            query: debouncedQuery,
+            department: filters.department,
+            minRating: filters.minRating,
+            semester: filters.semester,
+            sort: filters.sort,
+            delayMs: 200,
+          }),
+        ]);
+
+        if (!isCancelled) {
+          setProfessors(profRes.content);
+          setCourses(courseRes.content);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar catálogo:', err);
+        if (!isCancelled) setIsLoading(false);
+      }
+    };
+
+    fetchCatalog();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedQuery, filters]);
+
+  const handleResetFilters = () => {
+    setFilters(INITIAL_FILTERS);
+    setSearchTerm('');
+    setDebouncedQuery('');
   };
 
-  const handleSearch = (searchTerm) => {
-    const term = searchTerm || '';
-    setSearchInputValue(term);
-    setQuery(term)
+  const handleSelectSuggestion = (item, type) => {
+    setIsDropdownOpen(false);
+    if (type === 'PROFESSOR') {
+      navigate(`/professores/${item.id}`);
+    } else {
+      navigate(`/disciplinas/${item.id}`);
+    }
   };
 
+  const totalResults = useMemo(() => {
+    let count = 0;
+    if (filters.type === 'ALL' || filters.type === 'PROFESSORS') {
+      count += professors.length;
+    }
+    if (filters.type === 'ALL' || filters.type === 'COURSES') {
+      count += courses.length;
+    }
+    return count;
+  }, [filters.type, professors.length, courses.length]);
 
-  const handleSuggestionClick = (item) => {
-    const nome = item.name || '';
-    setSearchInputValue(nome);
-    setQuery(nome);
-  };
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filters.type !== 'ALL') count += 1;
+    if (filters.department !== 'ALL') count += 1;
+    if (filters.semester !== 'ALL') count += 1;
+    if (filters.minRating > 0) count += 1;
+    if (filters.sort !== 'rating') count += 1;
+    if (debouncedQuery) count += 1;
+    return count;
+  }, [filters, debouncedQuery]);
 
   return (
-    <div className="auth-page">
+    <div className="home-layout">
       <Navbar />
 
-      <div className="pt-2 bg-white p-4">
-        <h1 className="fw-bold mt-4 text-primary text-center" style={{ fontSize: '26px', color: '#2C3E50' }}>
-          Encontre opiniões reais sobre professores e disciplinas
-        </h1>
-        <p className="fw-bold mb-4 text-center" style={{ fontSize: '15px', color: '#7B8A8B' }}>
-          Tome as melhores decisões com base em avaliações acadêmicas 100% anônimas.
-        </p>
-
-        <SearchBar
-          value={searchInputValue}
-          onChange={(e) => setSearchInputValue(e.target.value)}
-          onSearchDelayed={(delayedTerm) => setQuery(delayedTerm)}
-          onSearch={handleSearch}
-          suggestions={searchSuggestions}
-          onSuggestionClick={handleSuggestionClick}
-          className="mx-auto"
-        />
-      </div>
-
-      <div className="container-fluid d-flex align-items-start gap-4 px-3 px-lg-4 pt-2 pb-4">
-        <aside className="filter-card p-3 m-2 flex-shrink-0" style={{ marginTop: '-8px' }}>
-          <div className="d-flex gap-2 mb-3 p-2">
-            <i className="bi bi-lightning-charge-fill text-warning"></i>
-            <p className="fw-bold mb-0" style={{ fontSize: '18px', color: '#2C3E50' }}>
-              Filtros Avançados
-            </p>
+      {/* Hero Section com Barra de Busca Global */}
+      <section className="home-hero-section" aria-label="Busca e Apresentação">
+        <div className="home-hero-container">
+          <div className="hero-badge-pill">
+            <i className="bi bi-shield-check text-success" aria-hidden="true" />
+            <span>Avaliações 100% Anônimas • Classdoor</span>
           </div>
 
-          <p className="fw-semibold mx-2 mb-2" style={{ fontSize: '13px', color: '#2C3E50' }}>Tipo de Busca</p>
-          <div className="d-flex gap-2 mx-2 mb-3">
-            <FilterButton
-              label="Todos"
-              isActive={tipobusca === 'Todos'}
-              onClick={() => setTipoBusca('Todos')}
-            />
-            <FilterButton
-              label="Docentes"
-              isActive={tipobusca === 'Docentes'}
-              onClick={() => setTipoBusca('Docentes')}
-            />
-            <FilterButton
-              label="Cursos"
-              isActive={tipobusca === 'Cursos'}
-              onClick={() => setTipoBusca('Cursos')}
-            />
+          <h1 className="hero-title">
+            Avaliações Reais de Professores &amp; Disciplinas
+          </h1>
+          <p className="hero-subtitle">
+            Consulte notas de didática, nível de dificuldade e feedbacks anônimos de estudantes para planejar sua grade universitária.
+          </p>
+
+          {/* Search Box Central com Debounce e Autocomplete */}
+          <div className="hero-search-wrapper" ref={searchBoxRef}>
+            <div className="hero-search-box">
+              <span className="search-icon-prefix">
+                {isSearching ? (
+                  <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+                ) : (
+                  <i className="bi bi-search" aria-hidden="true" />
+                )}
+              </span>
+
+              <input
+                type="text"
+                className="hero-search-input"
+                placeholder="Busque por professor, disciplina, ementa ou departamento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => {
+                  if (debouncedQuery && suggestions.totalCount > 0) {
+                    setIsDropdownOpen(true);
+                  }
+                }}
+                aria-label="Buscar professores e disciplinas"
+                autoComplete="off"
+              />
+
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="btn-clear-search"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setDebouncedQuery('');
+                    setIsDropdownOpen(false);
+                  }}
+                  title="Limpar busca"
+                  aria-label="Limpar termo de busca"
+                >
+                  <i className="bi bi-x-circle-fill" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            {/* Dropdown de Autocomplete / Sugestões Rápidas */}
+            {isDropdownOpen && debouncedQuery && (
+              <div className="autocomplete-menu" role="listbox" aria-label="Sugestões de busca">
+                <div className="autocomplete-header">
+                  <span>Resultados para "{debouncedQuery}"</span>
+                  <span className="badge bg-secondary text-white">{suggestions.totalCount} encontrados</span>
+                </div>
+
+                {suggestions.totalCount === 0 ? (
+                  <div className="autocomplete-empty">
+                    <i className="bi bi-search text-muted me-2" aria-hidden="true" />
+                    <span>Nenhuma sugestão rápida encontrada.</span>
+                  </div>
+                ) : (
+                  <div className="autocomplete-items-list">
+                    {suggestions.professors.length > 0 && (
+                      <div className="autocomplete-group">
+                        <div className="autocomplete-group-title">
+                          <i className="bi bi-person-fill" aria-hidden="true" /> Professores
+                        </div>
+                        {suggestions.professors.map((prof) => (
+                          <div
+                            key={prof.id}
+                            className="autocomplete-item"
+                            role="option"
+                            aria-selected="false"
+                            onClick={() => handleSelectSuggestion(prof, 'PROFESSOR')}
+                          >
+                            <img
+                              src={prof.avatarUrl}
+                              alt={prof.name}
+                              className="autocomplete-avatar"
+                            />
+                            <div className="autocomplete-text">
+                              <span className="autocomplete-name">{prof.name}</span>
+                              <span className="autocomplete-dept">{prof.department}</span>
+                            </div>
+                            <span className="autocomplete-rating">
+                              <i className="bi bi-star-fill text-warning me-1" aria-hidden="true" />
+                              {prof.averageRating.toFixed(1)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {suggestions.courses.length > 0 && (
+                      <div className="autocomplete-group">
+                        <div className="autocomplete-group-title">
+                          <i className="bi bi-journal-text" aria-hidden="true" /> Disciplinas
+                        </div>
+                        {suggestions.courses.map((course) => (
+                          <div
+                            key={course.id}
+                            className="autocomplete-item"
+                            role="option"
+                            aria-selected="false"
+                            onClick={() => handleSelectSuggestion(course, 'COURSE')}
+                          >
+                            <span className="autocomplete-code-pill">{course.code}</span>
+                            <div className="autocomplete-text">
+                              <span className="autocomplete-name">{course.name}</span>
+                              <span className="autocomplete-dept">{course.department}</span>
+                            </div>
+                            <span className="autocomplete-rating">
+                              <i className="bi bi-star-fill text-warning me-1" aria-hidden="true" />
+                              {course.averageRating.toFixed(1)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Chips de buscas sugeridas */}
+            <div className="search-chips-row">
+              <span className="chips-label">Sugestões rápidas:</span>
+              {['Dr. Carlos Eduardo', 'Algoritmos', 'Dra. Ana Paula', 'Cálculo I', 'Engenharia de Software'].map(
+                (chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className="search-chip"
+                    onClick={() => setSearchTerm(chip)}
+                  >
+                    {chip}
+                  </button>
+                )
+              )}
+            </div>
           </div>
+        </div>
+      </section>
 
-          <FilterSelect
-            label="Departamento"
-            value={departamento}
-            onChange={(e) => setDepartamento(e.target.value)}
-            options={DEPARTMENTS}
-            className="mx-2 mb-3"
+      {/* Main Container com Barra Lateral e Grid */}
+      <main className="catalog-main-content">
+        <div className="catalog-layout-container">
+          {/* Barra Lateral de Filtros (Desktop & Drawer Mobile) */}
+          <FilterSidebar
+            filters={filters}
+            onChange={setFilters}
+            onReset={handleResetFilters}
+            departments={departments}
+            isMobileOpen={isMobileFilterOpen}
+            onCloseMobile={() => setIsMobileFilterOpen(false)}
+            totalResults={totalResults}
           />
-          <FilterSelect
-            label="Semestre"
-            value={semestre}
-            onChange={(e) => setSemestre(e.target.value)}
-            options={SEMESTERTests}
-            className="mx-2 mb-3"
-          />
 
-          <RatingFilter
-            label="Nota Média Mínima"
-            value={notaMinima}
-            onChange={(val) => setNotaMinima(val)}
-            className="mx-2 mb-3"
-          />
-          <button
-            className="btn w-100 bg-white fw-semibold mt-1" style={{ borderColor: "#CED4DA" }}
-            onClick={handleFilterSearch}
-          >
-            <i className='fw-semibold' style={{ fontSize: "14px", color: "#7B8A8B" }}>Limpar Filtros</i>
-          </button>
-        </aside>
+          {/* Área Principal de Catálogo */}
+          <section className="catalog-results-area" aria-label="Resultados do Catálogo">
+            {/* Barra Superior de Controles e Filtro Mobile */}
+            <div className="catalog-controls-bar">
+              <div className="controls-summary">
+                <span className="results-total-badge">
+                  <strong>{totalResults}</strong> {totalResults === 1 ? 'resultado' : 'resultados'}
+                  {debouncedQuery && <span> para "{debouncedQuery}"</span>}
+                </span>
 
+                {activeFiltersCount > 0 && (
+                  <button
+                    type="button"
+                    className="btn-clear-all-chips"
+                    onClick={handleResetFilters}
+                    title="Limpar todos os filtros"
+                  >
+                    <i className="bi bi-x-circle me-1" aria-hidden="true" />
+                    Limpar Filtros ({activeFiltersCount})
+                  </button>
+                )}
+              </div>
 
-        <main className="flex-grow-1 pt-2">
-          <div className="d-flex align-items-center justify-content-between mb-3">
-            <p className="fw-bold mb-0" style={{ fontSize: '18px', color: '#2C3E50' }}>
-              Resultados em Destaque ({loading ? '...' : `${results.length} encontrados`})
-            </p>
+              <div className="controls-actions">
+                {/* Botão para abrir gaveta mobile */}
+                <button
+                  type="button"
+                  className="btn-toggle-filter-mobile"
+                  onClick={() => setIsMobileFilterOpen(true)}
+                  aria-label="Abrir filtros acadêmicos"
+                >
+                  <i className="bi bi-funnel-fill" aria-hidden="true" />
+                  <span>Filtros</span>
+                  {activeFiltersCount > 0 && (
+                    <span className="mobile-filter-badge">{activeFiltersCount}</span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Grid de Resultados */}
+            <CatalogGrid
+              professors={professors}
+              courses={courses}
+              type={filters.type}
+              isLoading={isLoading}
+              onResetFilters={handleResetFilters}
+            />
+          </section>
+        </div>
+      </main>
+
+      {/* Rodapé institucional */}
+      <footer className="catalog-footer">
+        <div className="catalog-footer-inner">
+          <div className="footer-brand">
+            <i className="bi bi-mortarboard-fill text-success me-2" aria-hidden="true" />
+            <span className="fw-bold">Classdoor</span>
+            <span className="text-muted ms-2">• Avaliação Docente com Garantia de Anonimato Total</span>
           </div>
-
-          {loading ? (
-            <div className="d-flex align-items-center justify-content-center p-5 text-muted">
-              <div className="spinner-border spinner-border-sm text-primary me-2" role="status" />
-              <span>Carregando resultados...</span>
-            </div>
-          ) : results.length === 0 ? (
-            <div className="rounded-3 p-4 text-center  text-muted">
-              <i className="bi bi-search fs-3 d-block mb-2 text-secondary pt-5"></i>
-              <p className="mb-0 fw-semibold">Nenhum resultado encontrado com os filtros selecionados.</p>
-              <small>Tente alterar o departamento ou diminuir a nota mínima.</small>
-            </div>
-          ) : (
-            <div className="d-flex flex-wrap gap-4 align-items-stretch">
-              {results.map((item, idx) => (
-                <ResultCard
-                  key={item.id}
-                  avatarColor={item.avatarColor}
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  rating={item.rating}
-                  reviewsCount={item.reviewsCount}
-                  isPrimaryButton={idx === 0}
-                />
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
-
+          <div className="footer-links">
+            <a href="#termos">Termos de Uso</a>
+            <a href="#privacidade">Privacidade</a>
+            <a href="#ajuda">Ajuda</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

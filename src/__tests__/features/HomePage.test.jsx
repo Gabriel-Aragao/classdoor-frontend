@@ -1,74 +1,73 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomePage from '../../features/auth/HomePage';
 
-const renderWithProviders = (ui) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        gcTime: 0
-      }
-    }
-  });
-
-  return render(
-    <QueryClientProvider client={queryClient}>
+describe('HomePage Integration (US03 / Card 010)', () => {
+  it('deve renderizar a Navbar, Hero com barra de busca, FilterSidebar e CatalogGrid', async () => {
+    render(
       <MemoryRouter>
-        {ui}
+        <HomePage />
       </MemoryRouter>
-    </QueryClientProvider>
-  );
-};
+    );
 
-describe('HomePage Feature (US03 - Tela Principal)', () => {
-  it('deve renderizar a Hero Section, barra de pesquisa e filtros avançados', async () => {
-    renderWithProviders(<HomePage />);
+    // Hero e títulos
+    expect(screen.getByText(/Avaliações Reais de Professores/i)).not.toBeNull();
+    expect(screen.getByPlaceholderText(/Busque por professor, disciplina/i)).not.toBeNull();
 
-    expect(screen.getByText(/Encontre opiniões reais sobre professores e disciplinas/i)).toBeDefined();
-    expect(screen.getByPlaceholderText(/Buscar por professor, disciplina ou departamento.../i)).toBeDefined();
-    expect(screen.getByText(/Filtros Avançados/i)).toBeDefined();
-    expect(screen.getByText('Tipo de Busca')).toBeDefined();
-    expect(screen.getByText('Limpar Filtros')).toBeDefined();
+    // Filtros
+    expect(screen.getByText('Filtros Acadêmicos')).not.toBeNull();
 
+    // Aguarda carregar os itens do catálogo
     await waitFor(() => {
-      expect(screen.getByText(/Resultados em Destaque/i)).toBeDefined();
+      expect(screen.queryByLabelText('Carregando catálogo')).toBeNull();
     });
+
+    // Deve listar professores
+    expect(screen.getByText('Dr. Carlos Eduardo')).not.toBeNull();
   });
 
-  it('deve alternar tipo de busca entre Todos, Docentes e Cursos', async () => {
-    renderWithProviders(<HomePage />);
+  it('deve filtrar os resultados ao digitar na busca com debounce', async () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
 
-    const docentesBtn = screen.getByRole('button', { name: 'Docentes' });
-    fireEvent.click(docentesBtn);
-    expect(docentesBtn.className).toContain('active');
+    const searchInput = screen.getByPlaceholderText(/Busque por professor, disciplina/i);
+    fireEvent.change(searchInput, { target: { value: 'Algoritmos' } });
 
-    const cursosBtn = screen.getByRole('button', { name: 'Cursos' });
-    fireEvent.click(cursosBtn);
-    expect(cursosBtn.className).toContain('active');
+    // Aguarda debounce e busca
+    await waitFor(
+      () => {
+        expect(screen.getByText(/Algoritmos e Estruturas de Dados/i)).not.toBeNull();
+      },
+      { timeout: 1500 }
+    );
   });
 
-  it('deve redefinir filtros ao clicar em Limpar Filtros', async () => {
-    renderWithProviders(<HomePage />);
+  it('deve limpar busca ao clicar no botão de reset', async () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
 
-    const input = screen.getByPlaceholderText(/Buscar por professor/i);
-    fireEvent.change(input, { target: { value: 'Algoritmos' } });
-    expect(input.value).toBe('Algoritmos');
+    const searchInput = screen.getByPlaceholderText(/Busque por professor, disciplina/i);
+    fireEvent.change(searchInput, { target: { value: 'TermoInexistenteXYZ123' } });
 
-    const resetBtn = screen.getByRole('button', { name: /Limpar Filtros/i });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Nenhum resultado encontrado')).not.toBeNull();
+      },
+      { timeout: 1500 }
+    );
+
+    const resetBtn = screen.getByRole('button', { name: 'Limpar Filtros & Busca' });
     fireEvent.click(resetBtn);
 
-    expect(input.value).toBe('');
-  });
-
-  it('deve carregar e renderizar cards de resultados do catálogo mockado', async () => {
-    renderWithProviders(<HomePage />);
-
     await waitFor(() => {
-      const cards = screen.getAllByRole('button', { name: /Ver Perfil Completo/i });
-      expect(cards.length).toBeGreaterThan(0);
+      expect(screen.getByText('Dr. Carlos Eduardo')).not.toBeNull();
     });
   });
 });
