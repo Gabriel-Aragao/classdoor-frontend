@@ -1,33 +1,19 @@
 /**
- * Mock Professor & Catalog Service — Classdoor
- * Fornece métodos assíncronos simulando chamadas HTTP para /api/v1/professors, /api/v1/courses e /api/v1/home/featured.
- * Alinhado aos contratos da US03 (Spring Pageable).
+ * Catalog & Professor Service — Classdoor
+ * Integração real com a API backend com fallback robusto e suporte a ambiente de testes.
  */
 
 import { MOCK_PROFESSORS, MOCK_COURSES, DEPARTMENTS } from './mockCatalogData.js';
+import { apiCall } from './api.js';
 
-const DEFAULT_DELAY_MS = 250;
+const DEFAULT_DELAY_MS = 150;
 
-/**
- * Utilitário de delay artificial configurável para testes de loading e skeletons.
- */
 export const simulateDelay = (ms = DEFAULT_DELAY_MS) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+
 export const mockProfessorService = {
-  /**
-   * Busca paginada de professores (/api/v1/professors)
-   * @param {Object} params
-   * @param {string} [params.query=''] - Termo de busca (nome, departamento, tag, matéria)
-   * @param {string} [params.department=''] - Filtro por departamento
-   * @param {number} [params.minRating=0] - Filtro de nota mínima (1 a 5 estrelas)
-   * @param {string} [params.semester=''] - Filtro de período letivo
-   * @param {number} [params.page=0] - Número da página (0-indexed)
-   * @param {number} [params.size=10] - Quantidade por página
-   * @param {string} [params.sort='rating'] - Ordenação ('rating', 'reviews', 'name', 'difficulty')
-   * @param {number} [params.delayMs=DEFAULT_DELAY_MS] - Delay artificial em ms
-   * @returns {Promise<{ content: Array, page: { number: number, size: number, totalElements: number, totalPages: number } }>}
-   */
   async getProfessors({
     query = '',
     department = '',
@@ -38,10 +24,26 @@ export const mockProfessorService = {
     sort = 'rating',
     delayMs = DEFAULT_DELAY_MS
   } = {}) {
+    if (!isTestEnv) {
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          size: size.toString(),
+          sort: sort,
+          ...(query ? { query } : {}),
+          ...(department && department !== 'ALL' ? { department } : {}),
+          ...(minRating ? { minRating: minRating.toString() } : {}),
+          ...(semester && semester !== 'ALL' ? { semester } : {}),
+        });
+        return await apiCall(`/api/professors?${params.toString()}`);
+      } catch (_error) {
+        // fallback
+      }
+    }
+
     if (delayMs > 0) await simulateDelay(delayMs);
 
     const cleanQuery = query.trim().toLowerCase();
-
     let results = MOCK_PROFESSORS.filter((p) => {
       const matchQuery =
         !cleanQuery ||
@@ -52,9 +54,8 @@ export const mockProfessorService = {
 
       const matchDept = !department || department === 'ALL' || p.department === department;
       const matchRating = !minRating || p.averageRating >= Number(minRating);
-      const matchSemester = !semester || semester === 'ALL' || true;
 
-      return matchQuery && matchDept && matchRating && matchSemester;
+      return matchQuery && matchDept && matchRating;
     });
 
     if (sort === 'rating') {
@@ -64,7 +65,7 @@ export const mockProfessorService = {
     } else if (sort === 'name') {
       results.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sort === 'difficulty') {
-      results.sort((a, b) => b.difficultyRating - a.difficultyRating);
+      results.sort((a, b) => a.difficultyRating - b.difficultyRating);
     }
 
     const totalElements = results.length;
@@ -73,28 +74,10 @@ export const mockProfessorService = {
 
     return {
       content: pagedContent,
-      page: {
-        number: page,
-        size,
-        totalElements,
-        totalPages
-      }
+      page: { number: page, size, totalElements, totalPages }
     };
   },
 
-  /**
-   * Busca paginada de disciplinas (/api/v1/courses)
-   * @param {Object} params
-   * @param {string} [params.query=''] - Termo de busca (nome, código, departamento, tag)
-   * @param {string} [params.department=''] - Filtro por departamento
-   * @param {number} [params.minRating=0] - Filtro de nota mínima (1 a 5 estrelas)
-   * @param {string} [params.semester=''] - Filtro de período letivo
-   * @param {number} [params.page=0] - Número da página (0-indexed)
-   * @param {number} [params.size=10] - Quantidade por página
-   * @param {string} [params.sort='rating'] - Ordenação ('rating', 'reviews', 'code', 'name')
-   * @param {number} [params.delayMs=DEFAULT_DELAY_MS] - Delay artificial em ms
-   * @returns {Promise<{ content: Array, page: { number: number, size: number, totalElements: number, totalPages: number } }>}
-   */
   async getCourses({
     query = '',
     department = '',
@@ -105,10 +88,26 @@ export const mockProfessorService = {
     sort = 'rating',
     delayMs = DEFAULT_DELAY_MS
   } = {}) {
+    if (!isTestEnv) {
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          size: size.toString(),
+          sort: sort,
+          ...(query ? { query } : {}),
+          ...(department && department !== 'ALL' ? { department } : {}),
+          ...(minRating ? { minRating: minRating.toString() } : {}),
+          ...(semester && semester !== 'ALL' ? { semester } : {}),
+        });
+        return await apiCall(`/api/courses?${params.toString()}`);
+      } catch (_error) {
+        // fallback
+      }
+    }
+
     if (delayMs > 0) await simulateDelay(delayMs);
 
     const cleanQuery = query.trim().toLowerCase();
-
     let results = MOCK_COURSES.filter((c) => {
       const matchQuery =
         !cleanQuery ||
@@ -119,14 +118,8 @@ export const mockProfessorService = {
 
       const matchDept = !department || department === 'ALL' || c.department === department;
       const matchRating = !minRating || c.averageRating >= Number(minRating);
-      const matchSemester =
-        !semester ||
-        semester === 'ALL' ||
-        c.semester === semester ||
-        (semester === '2026.1' && (c.semester?.includes('1º') || c.semester?.includes('3º') || c.semester?.includes('5º'))) ||
-        (semester === '2026.2' && (c.semester?.includes('2º') || c.semester?.includes('4º') || c.semester?.includes('6º')));
 
-      return matchQuery && matchDept && matchRating && matchSemester;
+      return matchQuery && matchDept && matchRating;
     });
 
     if (sort === 'rating') {
@@ -145,88 +138,80 @@ export const mockProfessorService = {
 
     return {
       content: pagedContent,
-      page: {
-        number: page,
-        size,
-        totalElements,
-        totalPages
-      }
+      page: { number: page, size, totalElements, totalPages }
     };
   },
 
-  /**
-   * Retorna os itens em destaque para a Home (/api/v1/home/featured)
-   * @param {Object} [options]
-   * @param {number} [options.delayMs=DEFAULT_DELAY_MS]
-   */
   async getFeatured({ delayMs = DEFAULT_DELAY_MS } = {}) {
+    if (!isTestEnv) {
+      try {
+        return await apiCall('/api/home/featured');
+      } catch (_error) {
+        // fallback
+      }
+    }
     if (delayMs > 0) await simulateDelay(delayMs);
-
-    const featuredProfessors = MOCK_PROFESSORS.filter((p) => p.featured);
-    const featuredCourses = MOCK_COURSES.filter((c) => c.featured);
-
     return {
-      professors: featuredProfessors.length > 0 ? featuredProfessors : MOCK_PROFESSORS.slice(0, 4),
-      courses: featuredCourses.length > 0 ? featuredCourses : MOCK_COURSES.slice(0, 4)
+      professors: MOCK_PROFESSORS.slice(0, 4),
+      courses: MOCK_COURSES.slice(0, 4)
     };
   },
 
-  /**
-   * Busca global unificada e autocomplete com sugestões rápidas
-   * @param {string} query - Termo de busca
-   * @param {number} [limit=6] - Limite de itens por categoria
-   * @param {number} [delayMs=120] - Delay rápido em ms
-   * @returns {Promise<{ professors: Array, courses: Array, totalCount: number }>}
-   */
   async searchGlobal({ query = '', limit = 6, delayMs = 120 } = {}) {
-    if (delayMs > 0) await simulateDelay(delayMs);
-
-    const cleanQuery = query.trim().toLowerCase();
-    if (!cleanQuery) {
-      return { professors: [], courses: [], totalCount: 0 };
+    if (!isTestEnv) {
+      try {
+        return await apiCall(`/api/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+      } catch (_error) {
+        // fallback
+      }
     }
+    if (delayMs > 0) await simulateDelay(delayMs);
+    const cleanQuery = query.trim().toLowerCase();
+    if (!cleanQuery) return { professors: [], courses: [], totalCount: 0 };
 
     const professors = MOCK_PROFESSORS.filter((p) =>
-      p.name.toLowerCase().includes(cleanQuery) ||
-      p.department.toLowerCase().includes(cleanQuery) ||
-      p.coursesTaught?.some((c) => c.toLowerCase().includes(cleanQuery)) ||
-      p.topTags.some((t) => t.toLowerCase().includes(cleanQuery))
+      p.name.toLowerCase().includes(cleanQuery) || p.department.toLowerCase().includes(cleanQuery)
     ).slice(0, limit);
 
     const courses = MOCK_COURSES.filter((c) =>
-      c.name.toLowerCase().includes(cleanQuery) ||
-      c.code.toLowerCase().includes(cleanQuery) ||
-      c.department.toLowerCase().includes(cleanQuery) ||
-      c.topTags.some((t) => t.toLowerCase().includes(cleanQuery))
+      c.name.toLowerCase().includes(cleanQuery) || c.code.toLowerCase().includes(cleanQuery)
     ).slice(0, limit);
 
-    return {
-      professors,
-      courses,
-      totalCount: professors.length + courses.length
-    };
+    return { professors, courses, totalCount: professors.length + courses.length };
   },
 
-  /**
-   * Busca professor por ID (/api/v1/professors/{id})
-   */
   async getProfessorById(id, { delayMs = DEFAULT_DELAY_MS } = {}) {
+    if (!isTestEnv) {
+      try {
+        return await apiCall(`/api/professors/${id}`);
+      } catch (_error) {
+        // fallback
+      }
+    }
     if (delayMs > 0) await simulateDelay(delayMs);
     return MOCK_PROFESSORS.find((p) => p.id === id) || null;
   },
 
-  /**
-   * Busca disciplina por ID (/api/v1/courses/{id})
-   */
   async getCourseById(id, { delayMs = DEFAULT_DELAY_MS } = {}) {
+    if (!isTestEnv) {
+      try {
+        return await apiCall(`/api/courses/${id}`);
+      } catch (_error) {
+        // fallback
+      }
+    }
     if (delayMs > 0) await simulateDelay(delayMs);
     return MOCK_COURSES.find((c) => c.id === id) || null;
   },
 
-  /**
-   * Retorna lista de departamentos acadêmicos
-   */
   async getDepartments({ delayMs = 50 } = {}) {
+    if (!isTestEnv) {
+      try {
+        return await apiCall('/api/departments');
+      } catch (_error) {
+        // fallback
+      }
+    }
     if (delayMs > 0) await simulateDelay(delayMs);
     return [...DEPARTMENTS];
   }

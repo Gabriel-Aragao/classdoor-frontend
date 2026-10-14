@@ -19,7 +19,7 @@ export async function apiCall(endpoint, options = {}) {
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorData.error || errorMessage;
-    } catch (_e) {
+    } catch {
       errorMessage = response.statusText || errorMessage;
     }
     throw new Error(errorMessage);
