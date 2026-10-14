@@ -1,4 +1,15 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.odominoapp.win';
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  // Em desenvolvimento local ou ambiente de preview/dev (ex: dev-appclassdoor.vercel.app ou localhost)
+  if (typeof window !== 'undefined' && (window.location.hostname.includes('dev') || window.location.hostname.includes('localhost'))) {
+    return 'https://dev-api.odominoapp.win';
+  }
+  return 'https://api.odominoapp.win';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function apiCall(endpoint, options = {}) {
   const token = localStorage.getItem('@classdoor:token');
