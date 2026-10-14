@@ -1,11 +1,20 @@
 const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+  try {
+    const envUrl = import.meta.env && import.meta.env.VITE_API_BASE_URL;
+    if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+      return envUrl.trim();
+    }
+    
+    if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+      const hostname = window.location.hostname.toLowerCase();
+      if (hostname.includes('dev') || hostname.includes('localhost') || hostname.includes('127.0.0.1') || hostname.includes('preview') || hostname.includes('git')) {
+        return 'https://dev-api.odominoapp.win';
+      }
+    }
+  } catch (e) {
+    console.error('Error determining API base URL:', e);
   }
-  // Em desenvolvimento local ou ambiente de preview/dev (ex: dev-appclassdoor.vercel.app ou localhost)
-  if (typeof window !== 'undefined' && (window.location.hostname.includes('dev') || window.location.hostname.includes('localhost'))) {
-    return 'https://dev-api.odominoapp.win';
-  }
+  
   return 'https://api.odominoapp.win';
 };
 
@@ -20,7 +29,9 @@ export async function apiCall(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });
