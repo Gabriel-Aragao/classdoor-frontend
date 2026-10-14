@@ -9,7 +9,7 @@ import { apiCall } from './api.js';
 
 const STORAGE_KEY_REVIEWS = 'classdoor_mock_reviews';
 const STORAGE_KEY_CLASSES = 'classdoor_mock_classes';
-const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+const isTestEnv = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
 
 export const generateAuditHash = async (identifier, classId) => {
   const payload = `${identifier.trim().toLowerCase()}::${classId}::classdoor_salt_2026`;
@@ -224,8 +224,8 @@ export const mockReviewService = {
             userEmail,
           }),
         });
-      } catch (err) {
-        throw new Error(err.message || 'Erro ao submeter avaliação na API.');
+      } catch {
+        throw new Error('Erro ao submeter avaliação na API.');
       }
     }
 
@@ -288,8 +288,8 @@ export const mockReviewService = {
     if (!isTestEnv) {
       try {
         return await apiCall(`/api/reviews/${reviewId}/upvote`, { method: 'POST' });
-      } catch (err) {
-        throw new Error(err.message || 'Erro ao registrar voto.');
+      } catch {
+        throw new Error('Erro ao registrar voto.');
       }
     }
 

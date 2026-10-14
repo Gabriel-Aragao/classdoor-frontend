@@ -11,7 +11,7 @@ const DEFAULT_DELAY_MS = 150;
 export const simulateDelay = (ms = DEFAULT_DELAY_MS) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+const isTestEnv = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
 
 export const mockProfessorService = {
   async getProfessors({
@@ -36,7 +36,7 @@ export const mockProfessorService = {
           ...(semester && semester !== 'ALL' ? { semester } : {}),
         });
         return await apiCall(`/api/professors?${params.toString()}`);
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
@@ -100,7 +100,7 @@ export const mockProfessorService = {
           ...(semester && semester !== 'ALL' ? { semester } : {}),
         });
         return await apiCall(`/api/courses?${params.toString()}`);
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
@@ -146,7 +146,7 @@ export const mockProfessorService = {
     if (!isTestEnv) {
       try {
         return await apiCall('/api/home/featured');
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
@@ -161,7 +161,7 @@ export const mockProfessorService = {
     if (!isTestEnv) {
       try {
         return await apiCall(`/api/search?query=${encodeURIComponent(query)}&limit=${limit}`);
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
@@ -184,7 +184,7 @@ export const mockProfessorService = {
     if (!isTestEnv) {
       try {
         return await apiCall(`/api/professors/${id}`);
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
@@ -196,7 +196,7 @@ export const mockProfessorService = {
     if (!isTestEnv) {
       try {
         return await apiCall(`/api/courses/${id}`);
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
@@ -208,7 +208,7 @@ export const mockProfessorService = {
     if (!isTestEnv) {
       try {
         return await apiCall('/api/departments');
-      } catch (_error) {
+      } catch {
         // fallback
       }
     }
