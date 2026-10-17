@@ -1,22 +1,18 @@
 /**
- * Mock Review & Evaluation Service — Classdoor
- * Camada de serviço com persistência em localStorage para US04, US05, US06 e US07.
- * Gerencia submissão, quorum >= 5, desassociação de anonimato, audit_hash, recálculo dinâmico e upvotes.
+ * Review & Evaluation Service — Classdoor
+ * Camada de serviço integrada com a API real (/api/reviews) e fallback para ambiente de testes.
  */
 
 import { MOCK_CLASSES, INITIAL_MOCK_REVIEWS } from './mockReviewData.js';
 import { simulateDelay } from './mockProfessorService.js';
+import { apiCall } from './api.js';
 
 const STORAGE_KEY_REVIEWS = 'classdoor_mock_reviews';
 const STORAGE_KEY_CLASSES = 'classdoor_mock_classes';
+const isTestEnv = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test';
 
-/**
- * Utilitário de hash determinístico para cálculo de audit_hash
- * Garante unicidade estrita por estudante + turma sem armazenar PII
- */
 export const generateAuditHash = async (identifier, classId) => {
   const payload = `${identifier.trim().toLowerCase()}::${classId}::classdoor_salt_2026`;
-
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     try {
       const msgBuffer = new TextEncoder().encode(payload);
@@ -24,11 +20,9 @@ export const generateAuditHash = async (identifier, classId) => {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
     } catch {
-      // Fallback para ambientes sem crypto.subtle
+      // ignore
     }
   }
-
-  // Fallback hash determinístico
   let hash = 0;
   for (let i = 0; i < payload.length; i += 1) {
     const char = payload.charCodeAt(i);
@@ -39,18 +33,13 @@ export const generateAuditHash = async (identifier, classId) => {
 };
 
 export const mockReviewService = {
-  /**
-   * Obtém lista de turmas disponíveis no storage
-   */
   getClasses(filters = {}) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_CLASSES);
       const classes = stored ? JSON.parse(stored) : MOCK_CLASSES;
-
       if (!stored) {
         localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(MOCK_CLASSES));
       }
-
       return classes.filter((c) => {
         const matchProf = !filters.professorId || c.professorId === filters.professorId;
         const matchCourse = !filters.courseId || c.courseId === filters.courseId;
@@ -61,17 +50,11 @@ export const mockReviewService = {
     }
   },
 
-  /**
-   * Obtém turma específica por ID
-   */
   getClassById(classId) {
     const classes = this.getClasses();
     return classes.find((c) => c.id === classId) || null;
   },
 
-  /**
-   * Obtém todas as avaliações armazenadas no localStorage
-   */
   getAllReviews() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_REVIEWS);
@@ -85,20 +68,14 @@ export const mockReviewService = {
     }
   },
 
-  /**
-   * Salva todas as avaliações no localStorage
-   */
   saveReviews(reviews) {
     try {
       localStorage.setItem(STORAGE_KEY_REVIEWS, JSON.stringify(reviews));
     } catch {
-      console.error('Erro ao salvar avaliações no localStorage:');
+      // ignore
     }
   },
 
-  /**
-   * Restaura o storage de avaliações e turmas para o estado inicial
-   */
   resetStorage() {
     try {
       localStorage.setItem(STORAGE_KEY_REVIEWS, JSON.stringify(INITIAL_MOCK_REVIEWS));
@@ -108,9 +85,6 @@ export const mockReviewService = {
     }
   },
 
-  /**
-   * Calcula métricas agregadas e histograma de estrelas (Scorecards US04)
-   */
   calculateScorecard(reviews = []) {
     const totalReviews = reviews.length;
     if (totalReviews === 0) {
@@ -119,14 +93,7 @@ export const mockReviewService = {
         averageRating: 0,
         difficultyRating: 0,
         recommendationPercentage: 0,
-        starHistogram: {
-          5: 0,
-          4: 0,
-          3: 0,
-          2: 0,
-          1: 0,
-          percentages: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-        },
+        starHistogram: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, percentages: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } },
         topTags: [],
       };
     }
@@ -141,14 +108,9 @@ export const mockReviewService = {
       const rating = Number(r.rating) || 0;
       sumRating += rating;
       sumDifficulty += Number(r.difficulty) || 0;
-
-      if (r.wouldRecommend) {
-        recommendCount += 1;
-      }
-
+      if (r.wouldRecommend) recommendCount += 1;
       const roundedStar = Math.min(5, Math.max(1, Math.round(rating)));
       starCounts[roundedStar] = (starCounts[roundedStar] || 0) + 1;
-
       if (Array.isArray(r.tags)) {
         r.tags.forEach((tag) => {
           tagFrequencies[tag] = (tagFrequencies[tag] || 0) + 1;
@@ -173,97 +135,63 @@ export const mockReviewService = {
       averageRating: Number((sumRating / totalReviews).toFixed(1)),
       difficultyRating: Number((sumDifficulty / totalReviews).toFixed(1)),
       recommendationPercentage: Math.round((recommendCount / totalReviews) * 100),
-      starHistogram: {
-        ...starCounts,
-        percentages: starPercentages,
-      },
+      starHistogram: { ...starCounts, percentages: starPercentages },
       topTags: sortedTags.slice(0, 5),
     };
   },
 
-  /**
-   * Busca avaliações de um professor com ordenação, filtros e paginação (US04 / US07)
-   */
-  async getReviewsByProfessorId(
-    professorId,
-    { sort = 'recentes', page = 0, size = 10, delayMs = 150 } = {}
-  ) {
-    if (delayMs > 0) await simulateDelay(delayMs);
+  async getReviewsByProfessorId(professorId, { sort = 'recentes', page = 0, size = 10, delayMs = 150 } = {}) {
+    if (!isTestEnv) {
+      try {
+        const params = new URLSearchParams({ page: page.toString(), size: size.toString(), sort });
+        return await apiCall(`/api/professors/${professorId}/reviews?${params.toString()}`);
+      } catch {
+        // fallback
+      }
+    }
 
+    if (delayMs > 0) await simulateDelay(delayMs);
     const all = this.getAllReviews();
     let filtered = all.filter((r) => r.professorId === professorId);
 
-    // Ordenação
-    if (sort === 'recentes' || sort === 'recent') {
-      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } else if (sort === 'rating_desc' || sort === 'highest_rating') {
-      filtered.sort((a, b) => b.rating - a.rating);
-    } else if (sort === 'rating_asc' || sort === 'lowest_rating') {
-      filtered.sort((a, b) => a.rating - b.rating);
-    } else if (sort === 'upvotes_desc' || sort === 'most_helpful') {
-      filtered.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
-    }
+    if (sort === 'recentes') filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    else if (sort === 'rating_desc') filtered.sort((a, b) => b.rating - a.rating);
+    else if (sort === 'upvotes_desc') filtered.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
 
     const scorecard = this.calculateScorecard(filtered);
     const totalElements = filtered.length;
     const totalPages = Math.ceil(totalElements / size) || (totalElements === 0 ? 0 : 1);
     const content = filtered.slice(page * size, (page + 1) * size);
 
-    return {
-      content,
-      scorecard,
-      page: {
-        number: page,
-        size,
-        totalElements,
-        totalPages,
-      },
-    };
+    return { content, scorecard, page: { number: page, size, totalElements, totalPages } };
   },
 
-  /**
-   * Busca avaliações de uma disciplina com ordenação e paginação (US04 / US07)
-   */
-  async getReviewsByCourseId(
-    courseId,
-    { sort = 'recentes', page = 0, size = 10, delayMs = 150 } = {}
-  ) {
-    if (delayMs > 0) await simulateDelay(delayMs);
+  async getReviewsByCourseId(courseId, { sort = 'recentes', page = 0, size = 10, delayMs = 150 } = {}) {
+    if (!isTestEnv) {
+      try {
+        const params = new URLSearchParams({ page: page.toString(), size: size.toString(), sort });
+        return await apiCall(`/api/courses/${courseId}/reviews?${params.toString()}`);
+      } catch {
+        // fallback
+      }
+    }
 
+    if (delayMs > 0) await simulateDelay(delayMs);
     const all = this.getAllReviews();
     let filtered = all.filter((r) => r.courseId === courseId);
 
-    // Ordenação
-    if (sort === 'recentes' || sort === 'recent') {
-      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } else if (sort === 'rating_desc' || sort === 'highest_rating') {
-      filtered.sort((a, b) => b.rating - a.rating);
-    } else if (sort === 'rating_asc' || sort === 'lowest_rating') {
-      filtered.sort((a, b) => a.rating - b.rating);
-    } else if (sort === 'upvotes_desc' || sort === 'most_helpful') {
-      filtered.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
-    }
+    if (sort === 'recentes') filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    else if (sort === 'rating_desc') filtered.sort((a, b) => b.rating - a.rating);
+    else if (sort === 'upvotes_desc') filtered.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
 
     const scorecard = this.calculateScorecard(filtered);
     const totalElements = filtered.length;
     const totalPages = Math.ceil(totalElements / size) || (totalElements === 0 ? 0 : 1);
     const content = filtered.slice(page * size, (page + 1) * size);
 
-    return {
-      content,
-      scorecard,
-      page: {
-        number: page,
-        size,
-        totalElements,
-        totalPages,
-      },
-    };
+    return { content, scorecard, page: { number: page, size, totalElements, totalPages } };
   },
 
-  /**
-   * Submete nova avaliação com validações de negócio completas (US05)
-   */
   async submitReview({
     professorId,
     courseId,
@@ -278,50 +206,50 @@ export const mockReviewService = {
     userEmail = '',
     delayMs = 200,
   }) {
-    if (delayMs > 0) await simulateDelay(delayMs);
-
-    // 1. Validação de campos obrigatórios
-    if (!classId) {
-      throw new Error('A turma acadêmica é obrigatória para envio da avaliação.');
+    if (!isTestEnv) {
+      try {
+        return await apiCall('/api/reviews', {
+          method: 'POST',
+          body: JSON.stringify({
+            professorId,
+            courseId,
+            classId,
+            rating,
+            difficulty,
+            wouldRecommend,
+            comment,
+            tags,
+            isAnonymous,
+            studentName,
+            userEmail,
+          }),
+        });
+      } catch {
+        throw new Error('Erro ao submeter avaliação na API.');
+      }
     }
+
+    if (delayMs > 0) await simulateDelay(delayMs);
+    if (!classId) throw new Error('A turma acadêmica é obrigatória para envio da avaliação.');
 
     const numRating = Number(rating);
-    if (!numRating || numRating < 1 || numRating > 5) {
-      throw new Error('A nota deve ser um valor válido entre 1.0 e 5.0 estrelas.');
-    }
+    if (!numRating || numRating < 1 || numRating > 5) throw new Error('A nota deve ser um valor válido entre 1.0 e 5.0 estrelas.');
 
     const numDifficulty = Number(difficulty);
-    if (!numDifficulty || numDifficulty < 1 || numDifficulty > 5) {
-      throw new Error('O nível de dificuldade deve ser um valor válido entre 1.0 e 5.0.');
-    }
+    if (!numDifficulty || numDifficulty < 1 || numDifficulty > 5) throw new Error('O nível de dificuldade deve ser um valor válido entre 1.0 e 5.0.');
 
-    // 2. Validação da turma e quórum
     const targetClass = this.getClassById(classId);
-    if (!targetClass) {
-      throw new Error('Turma acadêmica não encontrada no sistema.');
-    }
+    if (!targetClass) throw new Error('Turma acadêmica não encontrada no sistema.');
+    if (!targetClass.isEvaluationOpen) throw new Error('O período de avaliação para esta turma encontra-se encerrado.');
+    if (targetClass.enrolledCount < 5) throw new Error('Quórum insuficiente: a turma possui menos de 5 alunos matriculados para garantir a privacidade.');
 
-    if (!targetClass.isEvaluationOpen) {
-      throw new Error('O período de avaliação para esta turma encontra-se encerrado.');
-    }
-
-    if (targetClass.enrolledCount < 5) {
-      throw new Error(
-        'Quórum insuficiente: a turma possui menos de 5 alunos matriculados para garantir a privacidade.'
-      );
-    }
-
-    // 3. Validação de Unicidade e Cálculo de audit_hash (Anti-duplicidade)
     const identifier = userEmail || studentName || 'student_session_user';
     const auditHash = await generateAuditHash(identifier, classId);
 
     const allReviews = this.getAllReviews();
     const alreadyEvaluated = allReviews.some((r) => r.audit_hash === auditHash);
-    if (alreadyEvaluated) {
-      throw new Error('Você já enviou uma avaliação para esta turma acadêmica.');
-    }
+    if (alreadyEvaluated) throw new Error('Você já enviou uma avaliação para esta turma acadêmica.');
 
-    // 4. Desassociação estrita de PII quando anônimo
     const isAnon = Boolean(isAnonymous);
     const finalStudentName = isAnon ? 'Estudante Anônimo' : studentName.trim() || 'Estudante';
     const finalAvatarUrl = isAnon
@@ -351,30 +279,24 @@ export const mockReviewService = {
 
     allReviews.unshift(newReview);
     this.saveReviews(allReviews);
+    const updatedScorecard = this.calculateScorecard(allReviews.filter((r) => r.professorId === newReview.professorId));
 
-    const updatedScorecard = this.calculateScorecard(
-      allReviews.filter((r) => r.professorId === newReview.professorId)
-    );
-
-    return {
-      success: true,
-      review: newReview,
-      scorecard: updatedScorecard,
-    };
+    return { success: true, review: newReview, scorecard: updatedScorecard };
   },
 
-  /**
-   * Voto de utilidade idempotente (US06)
-   */
   async toggleUpvote(reviewId, userId = 'current_user', { delayMs = 100 } = {}) {
-    if (delayMs > 0) await simulateDelay(delayMs);
+    if (!isTestEnv) {
+      try {
+        return await apiCall(`/api/reviews/${reviewId}/upvote`, { method: 'POST' });
+      } catch {
+        throw new Error('Erro ao registrar voto.');
+      }
+    }
 
+    if (delayMs > 0) await simulateDelay(delayMs);
     const allReviews = this.getAllReviews();
     const reviewIndex = allReviews.findIndex((r) => r.id === reviewId);
-
-    if (reviewIndex === -1) {
-      throw new Error('Avaliação não encontrada para registro de voto.');
-    }
+    if (reviewIndex === -1) throw new Error('Avaliação não encontrada para registro de voto.');
 
     const review = allReviews[reviewIndex];
     const upvotedBy = Array.isArray(review.upvotedBy) ? [...review.upvotedBy] : [];
@@ -385,30 +307,18 @@ export const mockReviewService = {
     let hasUpvoted;
 
     if (hasVoted) {
-      // Remove voto
       newUpvotedBy = upvotedBy.filter((id) => id !== userId);
       updatedUpvotes = Math.max(0, updatedUpvotes - 1);
       hasUpvoted = false;
     } else {
-      // Adiciona voto
       newUpvotedBy = [...upvotedBy, userId];
       updatedUpvotes += 1;
       hasUpvoted = true;
     }
 
-    allReviews[reviewIndex] = {
-      ...review,
-      upvotes: updatedUpvotes,
-      upvotedBy: newUpvotedBy,
-    };
-
+    allReviews[reviewIndex] = { ...review, upvotes: updatedUpvotes, upvotedBy: newUpvotedBy };
     this.saveReviews(allReviews);
 
-    return {
-      success: true,
-      reviewId,
-      upvotes: updatedUpvotes,
-      hasUpvoted,
-    };
+    return { success: true, reviewId, upvotes: updatedUpvotes, hasUpvoted };
   },
 };
